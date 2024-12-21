@@ -1,5 +1,10 @@
 #pragma once
+#include <vector>
 
+#include "Effect.h"
+#include "Camera.h"
+
+class Mesh;
 struct SDL_Window;
 struct SDL_Surface;
 
@@ -20,15 +25,43 @@ namespace dae
 		void Render() const;
 
 	private:
+		//--------------------------------------------------
+		//    Window
+		//--------------------------------------------------
 		SDL_Window* m_pWindow{};
 
 		int m_Width{};
 		int m_Height{};
 
-		bool m_IsInitialized{ false };
 
-		//DIRECTX
+		//--------------------------------------------------
+		//    Rasterizer General
+		//--------------------------------------------------
+		bool m_IsInitialized{ false };
+		bool m_SoftwareRasterizer{ false };
+
+		std::vector<Mesh*> m_vMeshes{};
+		FullShadeEffect* m_pVehicleEffect;
+		FlatShadeEffect* m_pFireEffect;
+
+		Camera m_Camera{};
+
+		//--------------------------------------------------
+		//    Software Rasterizer
+		//--------------------------------------------------
+
+
+		//--------------------------------------------------
+		//    DirectX Rasterizer
+		//--------------------------------------------------
 		HRESULT InitializeDirectX();
-		//...
+
+		ID3D11Device* m_pDevice{ nullptr };
+		ID3D11DeviceContext* m_pDeviceContext{ nullptr };
+		IDXGISwapChain* m_pSwapChain{ nullptr };
+		ID3D11Texture2D* m_pDepthStencilBuffer{ nullptr };
+		ID3D11DepthStencilView* m_pDepthStencilView{ nullptr };
+		ID3D11Resource* m_pRenderTargetBuffer{ nullptr };
+		ID3D11RenderTargetView* m_pRenderTargetView{ nullptr };
 	};
 }

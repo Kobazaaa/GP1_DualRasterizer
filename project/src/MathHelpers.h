@@ -56,4 +56,12 @@ namespace dae
 		if (v > 1.f) return 1.f;
 		return v;
 	}
+
+	// Returns -1 if < 0, returns 1 if > 0, returns 0 if == 0
+	inline int SignOf(float value)
+	{
+		if (value > -FLT_EPSILON and value < FLT_EPSILON) return 0;
+
+		return value < 0.f ? -1 : 1;
+	}
 }
