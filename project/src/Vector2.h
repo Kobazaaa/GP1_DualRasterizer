@@ -19,6 +19,11 @@ namespace dae
 		static float Dot(const Vector2& v1, const Vector2& v2);
 		static float Cross(const Vector2& v1, const Vector2& v2);
 
+		static Vector2 Max(const Vector2& v1, const Vector2& v2);
+		static Vector2 Min(const Vector2& v1, const Vector2& v2);
+		bool NearZero();
+
+
 		//Member Operators
 		Vector2 operator*(float scale) const;
 		Vector2 operator/(float scale) const;
@@ -32,6 +37,8 @@ namespace dae
 		Vector2& operator*=(float scale);
 		float& operator[](int index);
 		float operator[](int index) const;
+
+		bool operator==(const Vector2& v) const;
 
 		static const Vector2 UnitX;
 		static const Vector2 UnitY;

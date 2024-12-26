@@ -6,11 +6,6 @@ BaseEffect::BaseEffect(ID3D11Device* pDevice, const std::wstring& assetFile)
 	m_pEffect = LoadEffect(pDevice, assetFile);
 	if (m_pEffect)
 	{
-		m_pTechnique = m_pEffect->GetTechniqueByName("PointSamplingTechnique");
-
-		if (!m_pTechnique->IsValid())
-			std::wcout << L"m_pTechnique is not valid ";
-
 		m_pMatWorldViewProjVariable = m_pEffect->GetVariableByName("gWorldViewProj")->AsMatrix();
 		if (!m_pMatWorldViewProjVariable->IsValid())
 			std::wcout << L"m_pMatWorldViewProjVariable not valid!\n";
@@ -19,7 +14,6 @@ BaseEffect::BaseEffect(ID3D11Device* pDevice, const std::wstring& assetFile)
 }
 BaseEffect::~BaseEffect()
 {
-	if (m_pTechnique)			m_pTechnique->Release();
 	if (m_pEffect)				m_pEffect->Release();
 }
 
@@ -77,14 +71,41 @@ ID3DX11Effect* BaseEffect::GetEffect() const
 {
 	return m_pEffect;
 }
-ID3DX11EffectTechnique* BaseEffect::GetTechnique() const
+ID3DX11EffectTechnique* BaseEffect::GetTechniqueByName(const std::string& name) const
 {
-	return m_pTechnique;
+	const auto technique = m_pEffect->GetTechniqueByName(name.c_str());
+
+	if (!technique->IsValid())
+		std::wcout << L"Requested Technique with name" << std::wstring{name.begin(), name.end()} << " is not valid\n";
+
+	return technique;
+}
+
+ID3DX11EffectTechnique* BaseEffect::GetTechniqueByIndex(int index) const
+{
+	const auto technique = m_pEffect->GetTechniqueByIndex(index);
+
+	if (!technique->IsValid())
+		std::wcout << L"Requested Technique with index" << index << " is not valid\n";
+
+	return technique;
 }
 
 void BaseEffect::SetWorldViewProjectionMatrix(const Matrix& worldViewProjectionMatrix)
 {
 	m_pMatWorldViewProjVariable->SetMatrix(reinterpret_cast<const float*>(&worldViewProjectionMatrix));
+}
+
+void BaseEffect::LoadTexture(const std::string& variableName, const Texture* pTexture)
+{
+	auto variable = m_pEffect->GetVariableByName(variableName.c_str())->AsShaderResource();
+	if (!variable->IsValid())
+	{
+		std::cout << "Variable " << variableName << " was not valid variable to load a texture in!\n";
+		return;
+	}
+
+	variable->SetResource(pTexture->GetSRV());
 }
 #pragma endregion
 
@@ -94,18 +115,6 @@ FullShadeEffect::FullShadeEffect(ID3D11Device* pDevice, const std::wstring& asse
 {
 	if (m_pEffect)
 	{
-		m_pDiffuseMapVariable = m_pEffect->GetVariableByName("gDiffuseMap")->AsShaderResource();
-		if (!m_pDiffuseMapVariable->IsValid())
-			std::wcout << L"m_pDiffuseMapVariable not valid!\n";
-		m_pNormalMapVariable = m_pEffect->GetVariableByName("gNormalMap")->AsShaderResource();
-		if (!m_pNormalMapVariable->IsValid())
-			std::wcout << L"m_pNormalMapVariable not valid!\n";
-		m_pSpecularMapVariable = m_pEffect->GetVariableByName("gSpecularMap")->AsShaderResource();
-		if (!m_pSpecularMapVariable->IsValid())
-			std::wcout << L"m_pSpecularMapVariable not valid!\n";
-		m_pGlossinessMapVariable = m_pEffect->GetVariableByName("gGlossinessMap")->AsShaderResource();
-		if (!m_pGlossinessMapVariable->IsValid())
-			std::wcout << L"m_pGlossinessMapVariable not valid!\n";
 		m_pMatWorldVariable = m_pEffect->GetVariableByName("gWorldMatrix")->AsMatrix();
 		if (!m_pMatWorldVariable->IsValid())
 			std::wcout << L"m_pMatWorldVariable not valid!\n";
@@ -119,30 +128,6 @@ FullShadeEffect::~FullShadeEffect()
 {
 	if (m_pVecCameraVariable)		m_pVecCameraVariable->Release();
 	if (m_pMatWorldVariable)		m_pMatWorldVariable->Release();
-	if (m_pDiffuseMapVariable)		m_pDiffuseMapVariable->Release();
-	if (m_pNormalMapVariable)		m_pNormalMapVariable->Release();
-	if (m_pSpecularMapVariable)		m_pSpecularMapVariable->Release();
-	if (m_pGlossinessMapVariable)	m_pGlossinessMapVariable->Release();
-}
-
-void FullShadeEffect::SetDiffuseMap(const Texture* pDiffuseTexture)
-{
-	m_pDiffuseMapVariable->SetResource(pDiffuseTexture->GetSRV());
-}
-
-void FullShadeEffect::SetNormalMap(const Texture* pNormalTexture)
-{
-	m_pNormalMapVariable->SetResource(pNormalTexture->GetSRV());
-}
-
-void FullShadeEffect::SetSpecularMap(const Texture* pSpecularTexture)
-{
-	m_pSpecularMapVariable->SetResource(pSpecularTexture->GetSRV());
-}
-
-void FullShadeEffect::SetGlossinessMap(const Texture* pGlossinessTexture)
-{
-	m_pGlossinessMapVariable->SetResource(pGlossinessTexture->GetSRV());
 }
 
 void FullShadeEffect::SetWorldMatrix(const Matrix& worldMatrix)
@@ -162,9 +147,6 @@ FlatShadeEffect::FlatShadeEffect(ID3D11Device* pDevice, const std::wstring& asse
 {
 	if (m_pEffect)
 	{
-		m_pDiffuseMapVariable = m_pEffect->GetVariableByName("gDiffuseMap")->AsShaderResource();
-		if (!m_pDiffuseMapVariable->IsValid())
-			std::wcout << L"m_pDiffuseMapVariable not valid!\n";
 		m_pMatWorldVariable = m_pEffect->GetVariableByName("gWorldMatrix")->AsMatrix();
 		if (!m_pMatWorldVariable->IsValid())
 			std::wcout << L"m_pMatWorldVariable not valid!\n";
@@ -173,12 +155,6 @@ FlatShadeEffect::FlatShadeEffect(ID3D11Device* pDevice, const std::wstring& asse
 
 FlatShadeEffect::~FlatShadeEffect()
 {
-	if (m_pDiffuseMapVariable)		m_pDiffuseMapVariable->Release();
-}
-
-void FlatShadeEffect::SetDiffuseMap(const Texture* pDiffuseTexture)
-{
-	m_pDiffuseMapVariable->SetResource(pDiffuseTexture->GetSRV());
 }
 
 void FlatShadeEffect::SetWorldMatrix(const Matrix& worldMatrix)

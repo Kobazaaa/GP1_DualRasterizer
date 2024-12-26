@@ -25,6 +25,11 @@ namespace dae
 		static Vector3 Project(const Vector3& v1, const Vector3& v2);
 		static Vector3 Reject(const Vector3& v1, const Vector3& v2);
 		static Vector3 Reflect(const Vector3& v1, const Vector3& v2);
+		static Vector3 Lico(float f1, const Vector3& v1, float f2, const Vector3& v2, float f3, const Vector3& v3);
+
+		static Vector3 Max(const Vector3& v1, const Vector3& v2);
+		static Vector3 Min(const Vector3& v1, const Vector3& v2);
+		bool NearZero();
 
 		Vector4 ToPoint4() const;
 		Vector4 ToVector4() const;
@@ -44,6 +49,8 @@ namespace dae
 		Vector3& operator*=(float scale);
 		float& operator[](int index);
 		float operator[](int index) const;
+
+		bool operator==(const Vector3& v) const;
 
 		static const Vector3 UnitX;
 		static const Vector3 UnitY;

@@ -27,16 +27,17 @@ public:
 	//    Accessors
 	//--------------------------------------------------
 	ID3DX11Effect* GetEffect() const;
-	ID3DX11EffectTechnique* GetTechnique() const;
+	ID3DX11EffectTechnique* GetTechniqueByName(const std::string& name) const;
+	ID3DX11EffectTechnique* GetTechniqueByIndex(int index) const;
 
 	//--------------------------------------------------
 	//    Mutators
 	//--------------------------------------------------
 	void SetWorldViewProjectionMatrix(const Matrix& worldViewProjectionMatrix);
+	void LoadTexture(const std::string& variableName, const Texture* pTexture);
 
 protected:
 	ID3DX11Effect* m_pEffect{};
-	ID3DX11EffectTechnique* m_pTechnique{};
 
 	ID3DX11EffectMatrixVariable* m_pMatWorldViewProjVariable{};
 };
@@ -58,10 +59,6 @@ public:
 	//--------------------------------------------------
 	//    Mutators
 	//--------------------------------------------------
-	void SetDiffuseMap(const Texture* pDiffuseTexture);
-	void SetNormalMap(const Texture* pNormalTexture);
-	void SetSpecularMap(const Texture* pSpecularTexture);
-	void SetGlossinessMap(const Texture* pGlossinessTexture);
 
 	void SetWorldMatrix(const Matrix& worldMatrix);
 	void SetCameraPosition(const Vector3& cameraPosition);
@@ -69,10 +66,6 @@ private:
 	//--------------------------------------------------
 	//    Textures
 	//--------------------------------------------------
-	ID3DX11EffectShaderResourceVariable* m_pDiffuseMapVariable{};
-	ID3DX11EffectShaderResourceVariable* m_pNormalMapVariable{};
-	ID3DX11EffectShaderResourceVariable* m_pSpecularMapVariable{};
-	ID3DX11EffectShaderResourceVariable* m_pGlossinessMapVariable{};
 
 	//--------------------------------------------------
 	//    Variables
@@ -98,14 +91,12 @@ public:
 	//--------------------------------------------------
 	//    Mutators
 	//--------------------------------------------------
-	void SetDiffuseMap(const Texture* pDiffuseTexture);
 	void SetWorldMatrix(const Matrix& worldMatrix);
 
 private:
 	//--------------------------------------------------
 	//    Textures
 	//--------------------------------------------------
-	ID3DX11EffectShaderResourceVariable* m_pDiffuseMapVariable{};
 
 	//--------------------------------------------------
 	//    Variables

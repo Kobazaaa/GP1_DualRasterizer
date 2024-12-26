@@ -22,7 +22,7 @@ public:
 	//--------------------------------------------------
 	//    Texture Loader
 	//--------------------------------------------------
-	static Texture* LoadFromFile(const std::string& path, ID3D11Device* pDevice);
+	static Texture* LoadFromFile(const std::string& path, ID3D11Device* pDevice = nullptr);
 
 	//--------------------------------------------------
 	//    Accessors

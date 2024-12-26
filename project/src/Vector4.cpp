@@ -1,11 +1,12 @@
-#include "pch.h"
-
 #include "Vector4.h"
 
 #include <cassert>
 
 #include "Vector2.h"
 #include "Vector3.h"
+#include <cmath>
+
+#include "MathHelpers.h"
 
 namespace dae
 {
@@ -25,10 +26,11 @@ namespace dae
 	float Vector4::Normalize()
 	{
 		const float m = Magnitude();
-		x /= m;
-		y /= m;
-		z /= m;
-		w /= m;
+		const float mInv = 1.f / m;
+		x *= mInv;
+		y *= mInv;
+		z *= mInv;
+		w *= mInv;
 
 		return m;
 	}
@@ -36,7 +38,8 @@ namespace dae
 	Vector4 Vector4::Normalized() const
 	{
 		const float m = Magnitude();
-		return { x / m, y / m, z / m, w / m };
+		const float mInv = 1.f / m;
+		return { x * mInv, y * mInv, z * mInv, w * mInv };
 	}
 
 	Vector2 Vector4::GetXY() const
@@ -49,6 +52,11 @@ namespace dae
 		return { x,y,z };
 	}
 
+	Vector3 Vector4::GetXYW() const
+	{
+		return { x,y,w };
+	}
+
 	float Vector4::Dot(const Vector4& v1, const Vector4& v2)
 	{
 		return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z + v1.w * v2.w;
@@ -58,6 +66,12 @@ namespace dae
 	Vector4 Vector4::operator*(float scale) const
 	{
 		return { x * scale, y * scale, z * scale, w * scale };
+	}
+
+	Vector4 Vector4::operator/(float scale) const
+	{
+		const float invScale = 1.f / scale;
+		return { x * invScale, y * invScale, z * invScale, w * invScale };
 	}
 
 	Vector4 Vector4::operator+(const Vector4& v) const
@@ -98,5 +112,11 @@ namespace dae
 		if (index == 2)return z;
 		return w;
 	}
+
+	bool Vector4::operator==(const Vector4& v) const
+	{
+		return AreEqual(x, v.x, .000001f) && AreEqual(y, v.y, .000001f) && AreEqual(z, v.z, .000001f) && AreEqual(w, v.w, .000001f);
+	}
+
 #pragma endregion
 }

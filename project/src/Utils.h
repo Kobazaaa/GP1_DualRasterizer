@@ -1,9 +1,119 @@
 #pragma once
 #include <fstream>
 #include "Math.h"
+#include "Renderer.h"
+#include "Enums.h"
 
 namespace dae
 {
+	inline bool HaveSameSign(float val1, float val2, float val3)
+	{
+		return (std::signbit(val1) == std::signbit(val2)) && (std::signbit(val2) == std::signbit(val3));
+	}
+
+	template<typename AttributeType>
+	inline AttributeType InterpolateAttribute(const AttributeType& data0, const AttributeType& data1, const AttributeType& data2,
+		float Z0, float Z1, float Z2, float interpolatedDepth,
+		const Vector3& weights)
+	{
+		return (data0 * weights.x * Z1 * Z2 + data1 * weights.y * Z0 * Z2 + data2 * weights.z * Z0 * Z1)
+			/ (Z0 * Z1 * Z2) * interpolatedDepth;
+	}
+
+	inline float InterpolateDepth(float Z0, float Z1, float Z2, const Vector3& weights)
+	{
+		return (Z0 * Z1 * Z2)
+			/ (weights.x * Z1 * Z2 + weights.y * Z0 * Z2 + weights.z * Z0 * Z1);
+	}
+
+	// Both pixel and the triangle vertices must be in SCREEN SPACE
+	inline Vector3 CalculateBarycentricCoordinates(const Vector2& v0, const Vector2& v1, const Vector2& v2, const Vector2& p, float invArea)
+	{
+		//float area = Vector2::Cross(v1 - v0, v2 - v0);
+		//area = abs(area);
+		//float invArea = 1.f / area;
+
+		// Calculate the barycentric coordinates
+		// the if-checks and early return statements are to prevent further computing once one of the weights is outide of the -1 - 1 range
+		// Since at that point, our pixel is 100% going to be outside of the triangle
+		// If this is the case, we return the barycentric {0, 0, 0}, which will immediatly get discarded by the AreBarycentricValid function
+		float u = Vector2::Cross(v1 - p, v2 - v1) * invArea;
+		if (u < -1 or u > 1) return {};
+		float v = Vector2::Cross(v2 - p, v0 - v2) * invArea;
+		if (v < -1 or v > 1) return {};
+		float w = Vector2::Cross(v0 - p, v1 - v0) * invArea;
+		if (w < -1 or w > 1) return {};
+
+		return { u, v, w };
+	}
+	inline bool AreBarycentricValid(Vector3& barycentric, CullMode cullMode = CullMode::BackFace)
+	{
+		bool backfaceCulling = false;
+		bool frontfaceCulling = false;
+		if (cullMode == CullMode::BackFace) backfaceCulling = true;
+		else if (cullMode == CullMode::FrontFace) frontfaceCulling = true;
+
+		// Create simpler aliases
+		const float& X = barycentric.x;
+		const float& Y = barycentric.y;
+		const float& Z = barycentric.z;
+
+		// Do a quick check to immediatly discard if the sum doesn't equal 1 or -1
+		if (!AreEqual(X + Y + Z, -1, 0.0001f)
+			&& !AreEqual(X + Y + Z, 1, 0.0001f)) return false;
+
+		// If they differ from sign, already return false
+		if (!HaveSameSign(X, Y, Z)) return false;
+
+		// Cull back/front faces if needed
+		if (backfaceCulling)
+		{
+			if (X <= 0 and Y <= 0 and Z <= 0) return false;
+		}
+		else if (frontfaceCulling)
+		{
+			if (X >= 0 and Y >= 0 and Z >= 0) return false;
+		}
+
+		// Create aliases for abs, as well as absolute the actual 
+		const float absX = barycentric.x = abs(X);
+		const float absY = barycentric.y = abs(Y);
+		const float absZ = barycentric.z = abs(Z);
+
+		// Check if they are within the valid range of 0-1
+		if (absX < 0.f or absX > 1.f) return false;
+		if (absY < 0.f or absY > 1.f) return false;
+		if (absZ < 0.f or absZ > 1.f) return false;
+
+		// Check if their sum equals 1
+		// We check this again since our initial sum check is a quick and dirty one, which doesn't take into account if their signs are the same
+		// e.g. -3 + 4 + 0 also equals 1, but therefore isn't valid
+		// this check will prevent that
+		float sum = absX + absY + absZ;
+		bool equalOne = (sum - 1.f) > -0.0001f and (sum - 1.f) < 0.0001f;
+
+		return equalOne;
+	}
+
+	inline bool IsNDCTriangleInFrustum(const Vertex& vertex)
+	{
+		const Vector3& positionNDC = vertex.position;
+
+		if (positionNDC.x < -1 or positionNDC.x > 1) return false;
+		if (positionNDC.y < -1 or positionNDC.y > 1) return false;
+		if (positionNDC.z < 0 or positionNDC.z > 1) return false;
+		return true;
+	}
+	inline bool IsNDCTriangleInFrustum(const VertexOut& vertex)
+	{
+		Vertex temp;
+		temp.position = vertex.position.GetXYZ();
+		temp.color = vertex.color;
+		temp.uv = vertex.uv;
+
+		return IsNDCTriangleInFrustum(temp);
+	}
+
 	namespace Utils
 	{
 		//Just parses vertices and indices
@@ -61,7 +171,7 @@ namespace dae
 					//if a face is read:
 					//construct the 3 vertices, add them to the vertex array
 					//add three indices to the index array
-					//add the material index as attibute to the attribute array
+					//add the material index as attribute to the attribute array
 					//
 					// Faces or triangles
 					Vertex vertex{};

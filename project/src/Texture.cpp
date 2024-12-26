@@ -6,6 +6,12 @@ Texture::Texture(SDL_Surface* pSurface, ID3D11Device* pDevice)
 	: m_pSurface{ pSurface }
 	, m_pSurfacePixels{ static_cast<uint32_t*>(pSurface->pixels) }
 {
+	if (pDevice == nullptr)
+	{
+		std::wcout << L"Loading Texture on CPU and not GPU!";
+		return;
+	}
+
 	DXGI_FORMAT format = DXGI_FORMAT_R8G8B8A8_UNORM;
 	D3D11_TEXTURE2D_DESC desc{};
 	desc.Width = pSurface->w;
