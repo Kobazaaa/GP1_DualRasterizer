@@ -8,7 +8,9 @@
 #include "ConsoleTextSettings.h"
 
 namespace dae {
-
+	//--------------------------------------------------
+	//    Constructors and Destructors
+	//--------------------------------------------------
 	Renderer::Renderer(SDL_Window* pWindow) :
 		m_pWindow(pWindow)
 	{
@@ -18,9 +20,9 @@ namespace dae {
 		// Create Buffers
 		m_pFrontBuffer = SDL_GetWindowSurface(pWindow);
 		m_pBackBuffer = SDL_CreateRGBSurface(0, m_Width, m_Height, 32, 0, 0, 0, 0);
-		m_pBackBufferPixels = (uint32_t*)m_pBackBuffer->pixels;
+		m_pBackBufferPixels = static_cast<uint32_t*>(m_pBackBuffer->pixels);
 
-		m_pDepthBufferPixels = new float[m_Width * m_Height];
+		m_pDepthBufferPixels = new float[(m_Width * m_Height)];
 
 		//Initialize DirectX pipeline
 		const HRESULT result = InitializeDirectX();
@@ -34,20 +36,21 @@ namespace dae {
 			std::cout << "DirectX initialization failed!\n";
 		}
 
+		// Initialize Meshes and Effects
 		m_pVehicleEffect = new FullShadeEffect(m_pDevice, L"resources/PosCol3D.fx");
-		m_vMeshes.push_back(new Mesh(m_pDevice, "resources/vehicle.obj", m_pVehicleEffect));
+		m_vMeshes.push_back(new Mesh(m_pDevice, "resources/vehicle.obj", m_pVehicleEffect, false));
 		m_vMeshes.back()->LoadDiffuseTexture("resources/vehicle_diffuse.png", m_pDevice);
 		m_vMeshes.back()->LoadNormalMap("resources/vehicle_normal.png", m_pDevice);
 		m_vMeshes.back()->LoadSpecularMap("resources/vehicle_specular.png", m_pDevice);
 		m_vMeshes.back()->LoadGlossinessMap("resources/vehicle_gloss.png", m_pDevice);
 
 		m_pFireEffect = new FlatShadeEffect(m_pDevice, L"resources/Fire.fx");
-		m_vMeshes.push_back(new Mesh(m_pDevice, "resources/fireFX.obj", m_pFireEffect));
+		m_vMeshes.push_back(new Mesh(m_pDevice, "resources/fireFX.obj", m_pFireEffect, true));
 		m_vMeshes.back()->LoadDiffuseTexture("resources/fireFX_diffuse.png", m_pDevice);
 
+		// Initialize Camera
 		m_Camera.Initialize(45.f, { 0.f, 0.f , -10.f }, m_Width / static_cast<float>(m_Height), 0.1f, 1000.f);
 	}
-
 	Renderer::~Renderer()
 	{
 		for (auto& mesh : m_vMeshes)
@@ -76,12 +79,15 @@ namespace dae {
 
 	}
 
+
+	//--------------------------------------------------
+	//    Renderer
+	//--------------------------------------------------
 	void Renderer::Update(const Timer* pTimer)
 	{
 		m_Camera.Update(pTimer);
 
 		m_pVehicleEffect->SetWorldMatrix(m_vMeshes[0]->GetWorldMatrix());
-
 		m_pVehicleEffect->SetCameraPosition(m_Camera.origin);
 
 		if (m_RotateMesh)
@@ -93,14 +99,14 @@ namespace dae {
 											* m->GetWorldMatrix());
 			}
 		}
-		Matrix wvpm = m_vMeshes[0]->GetWorldMatrix() * m_Camera.GetViewMatrix() * m_Camera.GetProjectionMatrix();
-		m_pVehicleEffect->SetWorldViewProjectionMatrix(wvpm);
-		wvpm = m_vMeshes[1]->GetWorldMatrix() * m_Camera.GetViewMatrix() * m_Camera.GetProjectionMatrix();
-		m_pFireEffect->SetWorldViewProjectionMatrix(wvpm);
+
+		Matrix wvpMatrix = m_vMeshes[0]->GetWorldMatrix() * m_Camera.GetViewMatrix() * m_Camera.GetProjectionMatrix();
+		m_pVehicleEffect->SetWorldViewProjectionMatrix(wvpMatrix);
+
+		wvpMatrix = m_vMeshes[1]->GetWorldMatrix() * m_Camera.GetViewMatrix() * m_Camera.GetProjectionMatrix();
+		m_pFireEffect->SetWorldViewProjectionMatrix(wvpMatrix);
 
 	}
-
-
 	void Renderer::Render()
 	{
 		if (!m_IsInitialized)
@@ -110,7 +116,7 @@ namespace dae {
 		if (m_SoftwareRasterizer)
 		{
 			// @START
-			SDL_FillRect(m_pBackBuffer, NULL, SDL_MapRGB(m_pBackBuffer->format, 
+			SDL_FillRect(m_pBackBuffer, NULL, SDL_MapRGB(m_pBackBuffer->format,
 				255 * fillColor.r,
 				255 * fillColor.g,
 				255 * fillColor.b));
@@ -118,6 +124,16 @@ namespace dae {
 
 			// Lock BackBuffer
 			SDL_LockSurface(m_pBackBuffer);
+
+
+			RenderCPU();
+
+
+			// @END
+			SDL_UnlockSurface(m_pBackBuffer);
+			SDL_BlitSurface(m_pBackBuffer, 0, m_pFrontBuffer, 0);
+			SDL_UpdateWindowSurface(m_pWindow);
+
 		}
 		else
 		{
@@ -125,56 +141,69 @@ namespace dae {
 			const float color[4] = { fillColor.r, fillColor.g, fillColor.b, 1.f };
 			m_pDeviceContext->ClearRenderTargetView(m_pRenderTargetView, color);
 			m_pDeviceContext->ClearDepthStencilView(m_pDepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.f, 0);
-		}
 
 
-		if (m_SoftwareRasterizer)
-		{
-			RenderCPU();
-		}
-		else
-		{
 			m_pDeviceContext->RSSetState(m_pCurrentRasterizerState);
 			// 2. SET PIPELINE + INVOKE DRAW CALLS (= RENDER)
 			for (int meshIdx{}; meshIdx < (m_FireVisible + 1); ++meshIdx)
 			{
 				Mesh* currentMesh = m_vMeshes[meshIdx];
-				currentMesh->Render(m_pDeviceContext, m_SoftwareRasterizer);
+				currentMesh->RenderGPU(m_pDeviceContext);
 			}
-		}
 
-		if (m_SoftwareRasterizer)
-		{
-			// @END
-			SDL_UnlockSurface(m_pBackBuffer);
-			SDL_BlitSurface(m_pBackBuffer, 0, m_pFrontBuffer, 0);
-			SDL_UpdateWindowSurface(m_pWindow);
-		}
-		else
-		{
 			// 3. PRESENT BACKBUFFER (SWAP)
 			m_pSwapChain->Present(0, 0);
 		}
 	}
 
-	void Renderer::ToggleRenderMode()
+
+	//--------------------------------------------------
+	//    Rasterizer Shared
+	//--------------------------------------------------
+	void Renderer::CycleCullMode()
+	{
+		switch (m_CurrentCullMode)
+		{
+		case CullMode::BackFace:
+			m_CurrentCullMode = CullMode::FrontFace;
+			m_pCurrentRasterizerState = m_pRasterizerStateFront;
+			std::cout << DARK_YELLOW_TXT << "**(SHARED) CullMode = " << "FRONT" << "\n";
+			break;
+		case CullMode::FrontFace:
+			m_CurrentCullMode = CullMode::None;
+			m_pCurrentRasterizerState = m_pRasterizerStateNone;
+			std::cout << DARK_YELLOW_TXT << "**(SHARED) CullMode = " << "NONE" << "\n";
+			break;
+		case CullMode::None:
+			m_CurrentCullMode = CullMode::BackFace;
+			std::cout << DARK_YELLOW_TXT << "**(SHARED) CullMode = " << "BACK" << "\n";
+			m_pCurrentRasterizerState = m_pRasterizerStateBack;
+			break;
+		default:
+			break;
+		}
+	}
+
+	void Renderer::ToggleRenderer()
 	{
 		m_SoftwareRasterizer = !m_SoftwareRasterizer;
 		std::cout << DARK_YELLOW_TXT << "**(SHARED) Rasterizer Mode = " << (m_SoftwareRasterizer ? "SOFTWARE" : "HARDWARE") << "\n";
 	}
-
 	void Renderer::ToggleMeshRotation()
 	{
 		m_RotateMesh = !m_RotateMesh;
 		std::cout << DARK_YELLOW_TXT << "**(SHARED) Vehicle Rotations = " << (m_RotateMesh ? "ON" : "OFF") << "\n";
 	}
-
 	void Renderer::ToggleUniformColor()
 	{
 		m_DoUniformColor = !m_DoUniformColor;
 		std::cout << DARK_YELLOW_TXT << "**(SHARED) Uniform ClearColor = " << (m_DoUniformColor ? "ON" : "OFF") << "\n";
 	}
 
+
+	//--------------------------------------------------
+	//    Software Rasterizer
+	//--------------------------------------------------
 	void Renderer::CycleShadingMode()
 	{
 		switch (m_CurrentShadingMode)
@@ -200,48 +229,26 @@ namespace dae {
 		}
 	}
 
-	void Renderer::CycleCullMode()
-	{
-		switch (m_CurrentCullMode)
-		{
-		case CullMode::BackFace:
-			m_CurrentCullMode = CullMode::FrontFace;
-			m_pCurrentRasterizerState = m_pRasterizerStateFront;
-			std::cout << DARK_YELLOW_TXT << "**(SHARED) CullMode = " << "FRONT" << "\n";
-			break;
-		case CullMode::FrontFace:
-			m_CurrentCullMode = CullMode::None;
-			m_pCurrentRasterizerState = m_pRasterizerStateNone;
-			std::cout << DARK_YELLOW_TXT << "**(SHARED) CullMode = " << "NONE" << "\n";
-			break;
-		case CullMode::None:
-			m_CurrentCullMode = CullMode::BackFace;
-			std::cout << DARK_YELLOW_TXT << "**(SHARED) CullMode = " << "BACK" << "\n";
-			m_pCurrentRasterizerState = m_pRasterizerStateBack;
-			break;
-		default:
-			break;
-		}
-	}
-
 	void Renderer::ToggleDepthBufferVisualization()
 	{
 		m_DepthBufferVisualization = !m_DepthBufferVisualization;
 		std::cout << DARK_MAGENTA_TXT << "**(SOFTWARE) DepthBuffer Visualization = " << (m_DepthBufferVisualization ? "ON" : "OFF") << "\n";
 	}
-
 	void Renderer::ToggleNormalMap()
 	{
 		m_UseNormalMap = !m_UseNormalMap;
 		std::cout << DARK_MAGENTA_TXT << "**(SOFTWARE) NormalMap = " << (m_UseNormalMap ? "ON" : "OFF") << "\n";
 	}
-
 	void Renderer::ToggleBoundingBox()
 	{
 		m_BoundingBoxVisualization = !m_BoundingBoxVisualization;
 		std::cout << DARK_MAGENTA_TXT << "**(SOFTWARE) BoundingBox Visualization = " << (m_BoundingBoxVisualization ? "ON" : "OFF") << "\n";
 	}
 
+
+	//--------------------------------------------------
+	//    DirectX Rasterizer
+	//--------------------------------------------------
 	void Renderer::CycleSamplingStates()
 	{
 		switch (m_CurrentSamplerState)
@@ -261,27 +268,30 @@ namespace dae {
 		default:
 			m_CurrentSamplerState = SamplerState::Linear;
 			break;
-		}	
+		}
 
 		for (const auto& m : m_vMeshes)
 		{
 			m->SetTextureSamplingState(m_CurrentSamplerState);
 		}
 	}
-
 	void Renderer::ToggleFire()
 	{
 		m_FireVisible = !m_FireVisible;
 		std::cout << DARK_GREEN_TXT << "**(HARDWARE) FireFX = " << (m_FireVisible ? "ON" : "OFF") << "\n";
 	}
 
+
+	//--------------------------------------------------
+	//    Software Rasterizer PRIVATE
+	//--------------------------------------------------
 	void Renderer::RenderCPU()
 	{
 		// predefine a triangle we can reuse
 		std::array<VertexOut, 3> triangleNDC{};
 		std::array<VertexOut, 3> triangleRasterVertices{};
 
-		for (int triangleMeshIndex{}; triangleMeshIndex < 1; ++triangleMeshIndex)
+		for (int triangleMeshIndex{}; triangleMeshIndex < (m_FireVisible + 1); ++triangleMeshIndex)
 		{
 			Mesh* currentMesh = m_vMeshes[triangleMeshIndex];
 			auto& verticesOut = currentMesh->GetVerticesOutByReference();
@@ -298,13 +308,13 @@ namespace dae {
 			if (primitiveTopology == PrimitiveTopology::TriangleList)
 			{
 				indexJump = 3;
-				triangleCount = indices.size() / 3;
+				triangleCount = static_cast<int>(indices.size()) / 3;
 				triangleStripMethod = false;
 			}
 			else if (primitiveTopology == PrimitiveTopology::TriangleStrip)
 			{
 				indexJump = 1;
-				triangleCount = indices.size() - 2;
+				triangleCount = static_cast<int>(indices.size()) - 2;
 				triangleStripMethod = true;
 			}
 
@@ -327,7 +337,7 @@ namespace dae {
 				triangleNDC[1] = verticesOut[indexPos1];
 				triangleNDC[2] = verticesOut[indexPos2];
 				// Calculate the minimum depth if the current triangle, which we will use later for early-depth test
-				const float minDepth = std::min({triangleNDC[0].position.z, triangleNDC[1].position.z, triangleNDC[2].position.z});
+				const float minDepth = std::min({ triangleNDC[0].position.z, triangleNDC[1].position.z, triangleNDC[2].position.z });
 
 				// Cull the triangle if one or more of the NDC vertices are outside the frustum
 				if (!IsNDCTriangleInFrustum(triangleNDC[0])) continue;
@@ -416,7 +426,7 @@ namespace dae {
 							v0, v1, v2, pixelCoord, invArea);
 
 						// Check if our barycentric coordinates are valid, if not, skip to the next pixel
-						if (!AreBarycentricValid(barycentricCoords, m_CurrentCullMode)) continue;
+						if (!AreBarycentricValid(barycentricCoords, (triangleMeshIndex == 1) ? CullMode::None : m_CurrentCullMode)) continue;
 
 						// Now we interpolated both our Z and W depths
 						InterpolateDepths(zBufferValue, wInterpolated, triangleRasterVertices, barycentricCoords);
@@ -427,7 +437,11 @@ namespace dae {
 						if (zBufferValue > m_pDepthBufferPixels[m_Width * py + px]) continue;
 
 						// Now that we are sure our z-depth is smaller than the one in the zBuffer, we can update the zBuffer and interpolate the attributes
-						m_pDepthBufferPixels[m_Width * py + px] = zBufferValue;
+						// We only want to do this if there is no transparency
+						if (!currentMesh->HasTransparency())
+						{
+							m_pDepthBufferPixels[m_Width * py + px] = zBufferValue;
+						}
 
 						// Correctly interpolated attributes
 						VertexOut interpolatedAttributes{};
@@ -435,7 +449,8 @@ namespace dae {
 						interpolatedAttributes.position.z = zBufferValue;
 						interpolatedAttributes.position.w = wInterpolated;
 
-						finalColor = PixelShading(interpolatedAttributes, currentMesh);
+						float alpha{ 1 };
+						finalColor = PixelShading(interpolatedAttributes, currentMesh, &alpha);
 
 						if (m_DepthBufferVisualization)
 						{
@@ -443,9 +458,28 @@ namespace dae {
 							finalColor = ColorRGB{ remappedZ , remappedZ , remappedZ };
 						}
 
+						// If our alpha is smaller than 0.999f, and thus we have (noticeable) transparency, blend the color with whatever is currently already in the buffer
+						if (alpha < 0.999f)
+						{
+							// Request the color in the buffer
+							SDL_Color bufferColor{};
+							SDL_GetRGB(m_pBackBufferPixels[m_Width * py + px], m_pBackBuffer->format, &bufferColor.r, &bufferColor.g, &bufferColor.b);
+
+							// Put the SDL color in a ColorRGB
+							ColorRGB blendCol{};
+							blendCol.r = bufferColor.r;
+							blendCol.g = bufferColor.g;
+							blendCol.b = bufferColor.b;
+							blendCol /= 255.f;
+							blendCol.MaxToOne();
+
+							// Blend
+							finalColor *= alpha;
+							finalColor += (1 - alpha) * blendCol;
+						}
+
 						// Make sure our colors are within the correct 0-1 range (while keeping relative differences)
 						finalColor.MaxToOne();
-
 
 						//Update Color in Buffer
 						m_pBackBufferPixels[m_Width * py + px] = SDL_MapRGB(m_pBackBuffer->format,
@@ -457,8 +491,7 @@ namespace dae {
 			}
 		}
 	}
-
-	void Renderer::DrawBoundingBoxes(const Vector2& min, const Vector2& max)
+	void Renderer::DrawBoundingBoxes(const Vector2& min, const Vector2& max) const
 	{
 		for (int py{ int(min.y) }; py < int(max.y); ++py)
 		{
@@ -470,6 +503,164 @@ namespace dae {
 		}
 	}
 
+	void Renderer::ProjectMeshToNDC(Mesh* mesh) const
+	{
+		auto& verticesOut = mesh->GetVerticesOutByReference();
+		auto& vertices = mesh->GetVerticesByReference();
+		auto& worldMatrix = mesh->GetWorldMatrix();
+
+		verticesOut.resize(vertices.size());
+
+		// Calculate the transformation matrix
+		Matrix worldViewProjectionMatrix = worldMatrix * m_Camera.viewMatrix * m_Camera.projectionMatrix;
+
+		for (int index{}; index < verticesOut.size(); ++index)
+		{
+			// Transform every vertex
+			Vector4 transformedPosition = worldViewProjectionMatrix.TransformPoint(vertices[index].position.ToPoint4());
+			verticesOut[index].position = transformedPosition;
+
+			if (verticesOut[index].position.w <= 0) continue;
+
+			// Perform the perspective divide
+			float invW = 1.f / transformedPosition.w;
+			verticesOut[index].position.x *= invW;
+			verticesOut[index].position.y *= invW;
+			verticesOut[index].position.z *= invW;
+
+
+			// Update the other attributes
+			verticesOut[index].color = vertices[index].color;
+			verticesOut[index].uv = vertices[index].uv;
+
+			verticesOut[index].normal = worldMatrix.TransformVector(vertices[index].normal).Normalized();
+			verticesOut[index].tangent = worldMatrix.TransformVector(vertices[index].tangent).Normalized();
+			verticesOut[index].viewDir = (worldMatrix.TransformPoint(verticesOut[index].position)
+				- m_Camera.origin.ToPoint4()).Normalized();
+		}
+	}
+	void Renderer::RasterizeVertex(VertexOut& vertex) const
+	{
+		vertex.position.x = (1.f + vertex.position.x) * 0.5f * m_Width;
+		vertex.position.y = (1.f - vertex.position.y) * 0.5f * m_Height;
+	}
+	void Renderer::InterpolateDepths(float& zDepth, float& wDepth, const std::array<VertexOut, 3>& triangle, const Vector3& weights)
+	{
+		// Now we interpolated both our Z and W depths
+		const float& Z0 = triangle[0].position.z;
+		const float& Z1 = triangle[1].position.z;
+		const float& Z2 = triangle[2].position.z;
+		zDepth = InterpolateDepth(Z0, Z1, Z2, weights);
+
+		const float& W0 = triangle[0].position.w;
+		const float& W1 = triangle[1].position.w;
+		const float& W2 = triangle[2].position.w;
+		wDepth = InterpolateDepth(W0, W1, W2, weights);
+	}
+	void Renderer::InterpolateAllAttributes(const std::array<VertexOut, 3>& triangle, const Vector3& weights, const float wInterpolated, VertexOut& output)
+	{
+		// Get W components
+		const float& W0 = triangle[0].position.w;
+		const float& W1 = triangle[1].position.w;
+		const float& W2 = triangle[2].position.w;
+
+		// Correctly interpolated position
+		const Vector4& P0 = triangle[0].position;
+		const Vector4& P1 = triangle[1].position;
+		const Vector4& P2 = triangle[2].position;
+		output.position = InterpolateAttribute(P0, P1, P2, W0, W1, W2, wInterpolated, weights);
+
+		// Correctly interpolated color
+		const ColorRGB& C0 = triangle[0].color;
+		const ColorRGB& C1 = triangle[1].color;
+		const ColorRGB& C2 = triangle[2].color;
+		output.color = InterpolateAttribute(C0, C1, C2, W0, W1, W2, wInterpolated, weights);
+
+		// Correctly interpolated uv
+		const Vector2& UV0 = triangle[0].uv;
+		const Vector2& UV1 = triangle[1].uv;
+		const Vector2& UV2 = triangle[2].uv;
+		output.uv = InterpolateAttribute(UV0, UV1, UV2, W0, W1, W2, wInterpolated, weights);
+
+		// Correctly interpolated normal
+		const Vector3& N0 = triangle[0].normal;
+		const Vector3& N1 = triangle[1].normal;
+		const Vector3& N2 = triangle[2].normal;
+		output.normal = InterpolateAttribute(N0, N1, N2, W0, W1, W2, wInterpolated, weights);
+		output.normal.Normalize();
+
+		// Correctly interpolated tangent
+		const Vector3& T0 = triangle[0].tangent;
+		const Vector3& T1 = triangle[1].tangent;
+		const Vector3& T2 = triangle[2].tangent;
+		output.tangent = InterpolateAttribute(T0, T1, T2, W0, W1, W2, wInterpolated, weights);
+		output.tangent.Normalize();
+
+		// Correctly interpolated viewDirection
+		const Vector3& VD0 = triangle[0].viewDir;
+		const Vector3& VD1 = triangle[1].viewDir;
+		const Vector3& VD2 = triangle[2].viewDir;
+		output.viewDir = InterpolateAttribute(VD0, VD1, VD2, W0, W1, W2, wInterpolated, weights);
+		output.viewDir.Normalize();
+	}
+
+	ColorRGB Renderer::PixelShading(const VertexOut& v, Mesh* m, float* alpha) const
+	{
+		// Ambient Color
+		constexpr ColorRGB ambient = { 0.03f, 0.03f, 0.03f };
+
+		// Set up the light
+		const Vector3 lightDirection = { 0.577f , -0.577f , 0.577f };
+		const Vector3 directionToLight = -lightDirection.Normalized();
+
+		// Sample the normal
+		Vector3 sampledNormal;
+		if (m_UseNormalMap and !m->HasTransparency())		sampledNormal = m->SampleNormalMap(v.normal, v.tangent, v.uv);
+		else												sampledNormal = v.normal;
+
+		// Calculate the observed area
+		const float observedArea = Vector3::Dot(sampledNormal, directionToLight);
+		// Skipping if observedArea < 0 happens when we check for the Current Shading Mode, as we really only want to skip (return black) if
+		// We are actually in a mode that uses observedArea (ObservedArea and Combined)
+
+		// Calculate the lambert diffuse color
+		const ColorRGB cd = m->SampleDiffuse(v.uv, alpha);
+		if (m->HasTransparency()) return cd;
+		constexpr float kd = 7.f;
+		const ColorRGB lambertDiffuse = (cd * kd) * ONE_DIV_PI;
+
+
+		// Calculate the specular
+		constexpr float shininess = 25.f;
+		const ColorRGB specular = m->SamplePhong(directionToLight, v.viewDir, sampledNormal, v.uv, shininess);
+
+
+		switch (m_CurrentShadingMode)
+		{
+		case ShadingMode::ObservedArea:
+			if (observedArea <= 0.f) return{};
+			return ColorRGB{ observedArea, observedArea, observedArea };
+			break;
+		case ShadingMode::Diffuse:
+			return lambertDiffuse;
+			break;
+		case ShadingMode::Specular:
+			return specular;
+			break;
+		case ShadingMode::Combined:
+			if (observedArea <= 0.f) return{};
+			return (lambertDiffuse + specular + ambient) * observedArea;
+			break;
+		default:
+			return (lambertDiffuse + specular + ambient) * observedArea;
+			break;
+		}
+	}
+
+
+	//--------------------------------------------------
+	//    DirectX Rasterizer PRIVATE
+	//--------------------------------------------------
 	HRESULT Renderer::InitializeDirectX()
 	{
 		// 1. Create Device & DeviceContext
@@ -602,157 +793,5 @@ namespace dae {
 			return result;
 
 		return S_OK;
-	}
-}
-void Renderer::ProjectMeshToNDC(Mesh* mesh) const
-{
-	auto& verticesOut = mesh->GetVerticesOutByReference();
-	auto& vertices = mesh->GetVerticesByReference();
-	auto& worldMatrix = mesh->GetWorldMatrix();
-
-	verticesOut.resize(vertices.size());
-
-	// Calculate the transformation matrix
-	Matrix worldViewProjectionMatrix = worldMatrix * m_Camera.viewMatrix * m_Camera.projectionMatrix;
-
-	for (int index{}; index < verticesOut.size(); ++index)
-	{
-		// Transform every vertex
-		Vector4 transformedPosition = worldViewProjectionMatrix.TransformPoint(vertices[index].position.ToPoint4());
-		verticesOut[index].position = transformedPosition;
-
-		if (verticesOut[index].position.w <= 0) continue;
-
-		// Perform the perspective divide
-		float invW = 1.f / transformedPosition.w;
-		verticesOut[index].position.x *= invW;
-		verticesOut[index].position.y *= invW;
-		verticesOut[index].position.z *= invW;
-
-
-		// Update the other attributes
-		verticesOut[index].color = vertices[index].color;
-		verticesOut[index].uv = vertices[index].uv;
-
-		verticesOut[index].normal = worldMatrix.TransformVector(vertices[index].normal).Normalized();
-		verticesOut[index].tangent = worldMatrix.TransformVector(vertices[index].tangent).Normalized();
-		verticesOut[index].viewDir = (worldMatrix.TransformPoint(verticesOut[index].position)
-			- m_Camera.origin.ToPoint4()).Normalized();
-	}
-}
-void Renderer::RasterizeVertex(VertexOut& vertex) const
-{
-	vertex.position.x = (1.f + vertex.position.x) * 0.5f * m_Width;
-	vertex.position.y = (1.f - vertex.position.y) * 0.5f * m_Height;
-}
-
-void Renderer::InterpolateDepths(float& zDepth, float& wDepth, const std::array<VertexOut, 3>& triangle, const Vector3& weights)
-{
-	// Now we interpolated both our Z and W depths
-	const float& Z0 = triangle[0].position.z;
-	const float& Z1 = triangle[1].position.z;
-	const float& Z2 = triangle[2].position.z;
-	zDepth = InterpolateDepth(Z0, Z1, Z2, weights);
-
-	const float& W0 = triangle[0].position.w;
-	const float& W1 = triangle[1].position.w;
-	const float& W2 = triangle[2].position.w;
-	wDepth = InterpolateDepth(W0, W1, W2, weights);
-}
-void Renderer::InterpolateAllAttributes(const std::array<VertexOut, 3>& triangle, const Vector3& weights, const float wInterpolated, VertexOut& output)
-{
-	// Get W components
-	const float& W0 = triangle[0].position.w;
-	const float& W1 = triangle[1].position.w;
-	const float& W2 = triangle[2].position.w;
-
-	// Correctly interpolated position
-	const Vector4& P0 = triangle[0].position;
-	const Vector4& P1 = triangle[1].position;
-	const Vector4& P2 = triangle[2].position;
-	output.position = InterpolateAttribute(P0, P1, P2, W0, W1, W2, wInterpolated, weights);
-
-	// Correctly interpolated color
-	const ColorRGB& C0 = triangle[0].color;
-	const ColorRGB& C1 = triangle[1].color;
-	const ColorRGB& C2 = triangle[2].color;
-	output.color = InterpolateAttribute(C0, C1, C2, W0, W1, W2, wInterpolated, weights);
-
-	// Correctly interpolated uv
-	const Vector2& UV0 = triangle[0].uv;
-	const Vector2& UV1 = triangle[1].uv;
-	const Vector2& UV2 = triangle[2].uv;
-	output.uv = InterpolateAttribute(UV0, UV1, UV2, W0, W1, W2, wInterpolated, weights);
-
-	// Correctly interpolated normal
-	const Vector3& N0 = triangle[0].normal;
-	const Vector3& N1 = triangle[1].normal;
-	const Vector3& N2 = triangle[2].normal;
-	output.normal = InterpolateAttribute(N0, N1, N2, W0, W1, W2, wInterpolated, weights);
-	output.normal.Normalize();
-
-	// Correctly interpolated tangent
-	const Vector3& T0 = triangle[0].tangent;
-	const Vector3& T1 = triangle[1].tangent;
-	const Vector3& T2 = triangle[2].tangent;
-	output.tangent = InterpolateAttribute(T0, T1, T2, W0, W1, W2, wInterpolated, weights);
-	output.tangent.Normalize();
-
-	// Correctly interpolated viewDirection
-	const Vector3& VD0 = triangle[0].viewDir;
-	const Vector3& VD1 = triangle[1].viewDir;
-	const Vector3& VD2 = triangle[2].viewDir;
-	output.viewDir = InterpolateAttribute(VD0, VD1, VD2, W0, W1, W2, wInterpolated, weights);
-	output.viewDir.Normalize();
-}
-
-ColorRGB Renderer::PixelShading(const VertexOut& v, Mesh* m)
-{
-	// Ambient Color
-	constexpr ColorRGB ambient = { 0.03f, 0.03f, 0.03f };
-
-	// Set up the light
-	const Vector3 lightDirection = { 0.577f , -0.577f , 0.577f };
-	const Vector3 directionToLight = -lightDirection.Normalized();
-
-	// Sample the normal
-	Vector3 sampledNormal;
-	if (m_UseNormalMap)		sampledNormal = m->SampleNormalMap(v.normal, v.tangent, v.uv);
-	else					sampledNormal = v.normal;
-
-	// Calculate the observed area
-	const float observedArea = Vector3::Dot(sampledNormal, directionToLight);
-	// Skipping if observedArea < 0 happens when we check for the Current Shading Mode, as we really only want to skip (return black) if
-	// We are actually in a mode that uses observedArea (ObservedArea and Combined)
-
-	// Calculate the lambert diffuse color
-	const ColorRGB cd = m->SampleDiffuse(v.uv);
-	constexpr float kd = 7.f;
-	const ColorRGB lambertDiffuse = (cd * kd) * ONE_DIV_PI;
-
-	// Calculate the specular
-	constexpr float shininess = 25.f;
-	const ColorRGB specular = m->SamplePhong(directionToLight, v.viewDir, sampledNormal, v.uv, shininess);
-
-
-	switch (m_CurrentShadingMode)
-	{
-	case ShadingMode::ObservedArea:
-		if (observedArea <= 0.f) return{};
-		return ColorRGB{ observedArea, observedArea, observedArea };
-		break;
-	case ShadingMode::Diffuse:
-		return lambertDiffuse;
-		break;
-	case ShadingMode::Specular:
-		return specular;
-		break;
-	case ShadingMode::Combined:
-		if (observedArea <= 0.f) return{};
-		return (lambertDiffuse + specular + ambient) * observedArea;
-		break;
-	default:
-		return (lambertDiffuse + specular + ambient) * observedArea;
-		break;
 	}
 }

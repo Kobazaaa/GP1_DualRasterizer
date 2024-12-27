@@ -28,7 +28,7 @@ public:
 	//    Accessors
 	//--------------------------------------------------
 	ID3D11ShaderResourceView* GetSRV() const;
-	ColorRGB Sample(const Vector2& uv) const;
+	ColorRGB Sample(const Vector2& uv, bool sampleAlpha = false, float* alpha = nullptr) const;
 
 private:
 	//--------------------------------------------------

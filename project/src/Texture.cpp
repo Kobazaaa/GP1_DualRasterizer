@@ -2,16 +2,20 @@
 #include <iostream>
 #include <SDL_image.h>
 
+//--------------------------------------------------
+//    Constructor and Destructor
+//--------------------------------------------------
 Texture::Texture(SDL_Surface* pSurface, ID3D11Device* pDevice)
 	: m_pSurface{ pSurface }
 	, m_pSurfacePixels{ static_cast<uint32_t*>(pSurface->pixels) }
 {
 	if (pDevice == nullptr)
 	{
-		std::wcout << L"Loading Texture on CPU and not GPU!";
+		std::wcout << L"Loading Texture on CPU and not GPU! pDevice was nullptr!\n";
 		return;
 	}
 
+	// Create the Texture2D
 	DXGI_FORMAT format = DXGI_FORMAT_R8G8B8A8_UNORM;
 	D3D11_TEXTURE2D_DESC desc{};
 	desc.Width = pSurface->w;
@@ -38,6 +42,7 @@ Texture::Texture(SDL_Surface* pSurface, ID3D11Device* pDevice)
 		return;
 	}
 
+	// Create the SRV
 	D3D11_SHADER_RESOURCE_VIEW_DESC descSRV{};
 	descSRV.Format = format;
 	descSRV.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
@@ -49,7 +54,6 @@ Texture::Texture(SDL_Surface* pSurface, ID3D11Device* pDevice)
 		return;
 	}
 }
-
 Texture::~Texture()
 {
 	if (m_pSurface)
@@ -62,6 +66,10 @@ Texture::~Texture()
 	if (m_pResource)	m_pResource->Release();
 }
 
+
+//--------------------------------------------------
+//    Texture Loader
+//--------------------------------------------------
 Texture* Texture::LoadFromFile(const std::string& path, ID3D11Device* pDevice)
 {
 	SDL_Surface* pSurface = IMG_Load(path.c_str());
@@ -74,12 +82,15 @@ Texture* Texture::LoadFromFile(const std::string& path, ID3D11Device* pDevice)
 	return new Texture(pSurface, pDevice);
 }
 
+
+//--------------------------------------------------
+//    Accessors
+//--------------------------------------------------
 ID3D11ShaderResourceView* Texture::GetSRV() const
 {
 	return m_pSRV;
 }
-
-ColorRGB Texture::Sample(const Vector2& uv) const
+ColorRGB Texture::Sample(const Vector2& uv, bool sampleAlpha, float* alpha) const
 {
 	// Set the default return color to black
 	ColorRGB returnColor{ 0, 0, 0 };
@@ -102,9 +113,10 @@ ColorRGB Texture::Sample(const Vector2& uv) const
 	Uint32 pixelData = *(Uint32*)pPixelAddr;
 
 	SDL_Color Color = { 0x00, 0x00, 0x00 };
+	Uint8 sampledAlpha = 0xFF;
 
 	// Retrieve the RGB values of the specific pixel
-	SDL_GetRGB(pixelData, m_pSurface->format, &Color.r, &Color.g, &Color.b);
+	SDL_GetRGBA(pixelData, m_pSurface->format, &Color.r, &Color.g, &Color.b, &sampledAlpha);
 
 	// Set our returnColor to the color SDL gave us
 	returnColor.r = Color.r;
@@ -112,6 +124,8 @@ ColorRGB Texture::Sample(const Vector2& uv) const
 	returnColor.b = Color.b;
 	// SDL uses colors in ranges 0-255, we use ranges 0-1, therefore we divide our returnColor by 255
 	returnColor /= 255.f;
+
+	if (sampleAlpha and alpha) *alpha = sampledAlpha / 255.f;
 
 	// return the background color of the pixel
 	return returnColor;

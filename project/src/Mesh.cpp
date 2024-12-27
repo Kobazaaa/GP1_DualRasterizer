@@ -2,14 +2,19 @@
 #include "Utils.h"
 #include <cassert>
 
-Mesh::Mesh(ID3D11Device* pDevice, const std::string& objFilePath, BaseEffect* pEffect)
+//--------------------------------------------------
+//    Constructors and Destructors
+//--------------------------------------------------
+Mesh::Mesh(ID3D11Device* pDevice, const std::string& objFilePath, BaseEffect* pEffect, const bool hasTransparency)
 {
+	m_Transparency = hasTransparency;
+
 	// Parse the OBJ Mesh
 	Utils::ParseOBJ(objFilePath, m_vVertices, m_vIndices);
 
 	// Get the Effect and Technique
 	m_pEffect = pEffect;
-	m_pTechnique = m_pEffect->GetTechniqueByIndex(0);
+	if (m_pEffect->GetEffect()->IsValid()) m_pCurrentTechnique = m_pEffect->GetTechniqueByIndex(0);
 
 	// Create Vertex Layout
 	static constexpr uint32_t numElements{ 5 };
@@ -69,7 +74,7 @@ Mesh::Mesh(ID3D11Device* pDevice, const std::string& objFilePath, BaseEffect* pE
 	if (FAILED(result))
 		assert(false);
 
-	// Create Vertex Buffer
+	// Create Index Buffer
 	m_NumIndices = static_cast <uint32_t>(m_vIndices.size());
 	bd.Usage = D3D11_USAGE_IMMUTABLE;
 	bd.ByteWidth = sizeof(uint32_t) * m_NumIndices;
@@ -81,7 +86,6 @@ Mesh::Mesh(ID3D11Device* pDevice, const std::string& objFilePath, BaseEffect* pE
 	if (FAILED(result))
 		assert(false);
 }
-
 Mesh::~Mesh()
 {
 	// Release resources
@@ -92,91 +96,50 @@ Mesh::~Mesh()
 	delete m_pEffect;
 }
 
-void Mesh::Render(ID3D11DeviceContext* pDeviceContext, const bool renderWithCPU)
+//--------------------------------------------------
+//    Rendering
+//--------------------------------------------------
+void Mesh::RenderGPU(ID3D11DeviceContext* pDeviceContext) const
 {
-	if (renderWithCPU) RenderCPU();
-	else RenderGPU(pDeviceContext);
-}
+	//1. Set Primitive Topology
+	pDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-void Mesh::SetWorldMatrix(const Matrix& newWorldMatrix)
-{
-	m_WorldMatrix = newWorldMatrix;
-}
+	//2. Set Input Layout
+	pDeviceContext->IASetInputLayout(m_pInputLayout);
 
-const Matrix& Mesh::GetWorldMatrix() const
-{
-	return m_WorldMatrix;
-}
+	//3. Set Vertex Buffer
+	constexpr UINT stride = sizeof(Vertex);
+	constexpr UINT offset = 0;
+	pDeviceContext->IASetVertexBuffers(0, 1, &m_pVertexBuffer, &stride, &offset);
 
-std::vector<Vertex>& Mesh::GetVerticesByReference()
-{
-	return m_vVertices;
-}
+	//4. Set Index Buffer
+	pDeviceContext->IASetIndexBuffer(m_pIndexBuffer, DXGI_FORMAT_R32_UINT, 0);
 
-std::vector<VertexOut>& Mesh::GetVerticesOutByReference()
-{
-	return m_vVerticesOut;
-}
-
-std::vector<uint32_t>& Mesh::GetIndicesByReference()
-{
-	return m_vIndices;
-}
-
-void Mesh::SetPrimitiveTopology(const PrimitiveTopology& primitiveTopology)
-{
-	m_PrimitiveTopology = primitiveTopology;
-}
-
-PrimitiveTopology Mesh::GetPrimitiveTopology() const
-{
-	return m_PrimitiveTopology;
-}
-
-void Mesh::SetTextureSamplingState(SamplerState samplerState)
-{
-	switch (samplerState)
+	//5. Draw
+	D3DX11_TECHNIQUE_DESC techDesc{};
+	m_pCurrentTechnique->GetDesc(&techDesc);
+	for (UINT p = 0; p < techDesc.Passes; ++p)
 	{
-	case SamplerState::Point:
-		m_pTechnique = m_pEffect->GetTechniqueByName("PointSamplingTechnique");
-		break;
-	case SamplerState::Linear:
-		m_pTechnique = m_pEffect->GetTechniqueByName("LinearSamplingTechnique");
-		break;
-	case SamplerState::Anisotropic:
-		m_pTechnique = m_pEffect->GetTechniqueByName("AnisotropicSamplingTechnique");
-		break;
-	default:
-		m_pTechnique = m_pEffect->GetTechniqueByIndex(0);
-		break;
+		m_pCurrentTechnique->GetPassByIndex(p)->Apply(0, pDeviceContext);
+		pDeviceContext->DrawIndexed(m_NumIndices, 0, 0);
 	}
 }
 
-ColorRGB Mesh::SampleDiffuse(const Vector2& interpUV) const
+
+//--------------------------------------------------
+//    Software
+//--------------------------------------------------
+
+// Sampling
+ColorRGB Mesh::SampleDiffuse(const Vector2& interpUV, float* alpha) const
 {
-	if (m_upDiffuseTxt == nullptr)
-	{
-		//std::cout << "Trying to sample a NULLPTR Diffuse Texture!\n";
-		return {};
-	}
-
-	return m_upDiffuseTxt->Sample(interpUV);
+	if (m_upDiffuseTxt == nullptr) return {};
+	return m_upDiffuseTxt->Sample(interpUV, m_Transparency, alpha);
 }
-
 ColorRGB Mesh::SamplePhong(const Vector3& dirToLight, const Vector3& viewDir, const Vector3& interpNormal, const Vector2& interpUV, float shininess) const
 {
-	if (m_upSpecularTxt == nullptr)
-	{
-		//std::cout << "Trying to sample a NULLPTR Specular Texture!\n";
-		return {};
-	}
-
-	if (m_upGlossTxt == nullptr)
-	{
-		//std::cout << "Trying to sample a NULLPTR Glossiness Texture!\n";
-		return {};
-	}
-
+	if (m_upSpecularTxt == nullptr) return {};
+	if (m_upGlossTxt == nullptr) return {};
 
 	float ks = m_upSpecularTxt->Sample(interpUV).r;
 	float exp = m_upGlossTxt->Sample(interpUV).r * shininess;
@@ -185,14 +148,9 @@ ColorRGB Mesh::SamplePhong(const Vector3& dirToLight, const Vector3& viewDir, co
 	float cosAlpha{ std::max(Vector3::Dot(reflect, viewDir), 0.f) };
 	return ColorRGB(1, 1, 1) * ks * std::pow(cosAlpha, exp);
 }
-
 Vector3 Mesh::SampleNormalMap(const Vector3& interpNormal, const Vector3& interpTangent, const Vector2& interpUV) const
 {
-	if (m_upNormalTxt == nullptr)
-	{
-		//std::cout << "Trying to sample a NULLPTR Normal Texture!\n";
-		return {};
-	}
+	if (m_upNormalTxt == nullptr) return {};
 
 	// Calculate the tangent space matrix
 	Vector3 binormal = Vector3::Cross(interpNormal, interpTangent);
@@ -214,40 +172,49 @@ Vector3 Mesh::SampleNormalMap(const Vector3& interpNormal, const Vector3& interp
 	normal = tangentSpaceAxis.TransformVector(normal);
 
 	return normal.Normalized();
-
 }
 
-void Mesh::RenderCPU()
+// Accessors
+std::vector<Vertex>& Mesh::GetVerticesByReference()			{ return m_vVertices; }
+std::vector<VertexOut>& Mesh::GetVerticesOutByReference()	{ return m_vVerticesOut; }
+std::vector<uint32_t>& Mesh::GetIndicesByReference()		{ return m_vIndices; }
+PrimitiveTopology Mesh::GetPrimitiveTopology() const		{ return m_PrimitiveTopology; }
+bool Mesh::HasTransparency() const							{ return m_Transparency; }
+
+// Mutators
+void Mesh::SetPrimitiveTopology(const PrimitiveTopology& primitiveTopology) { m_PrimitiveTopology = primitiveTopology; }
+
+
+//--------------------------------------------------
+//    DirectX
+//--------------------------------------------------
+
+// Mutators
+void Mesh::SetTextureSamplingState(SamplerState samplerState)
 {
-	//todo Add Code
-}
-
-void Mesh::RenderGPU(ID3D11DeviceContext* pDeviceContext)
-{
-	//1. Set Primitive Topology
-	pDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-	//2. Set Input Layout
-	pDeviceContext->IASetInputLayout(m_pInputLayout);
-
-	//3. Set Vertex Buffer
-	constexpr UINT stride = sizeof(Vertex);
-	constexpr UINT offset = 0;
-	pDeviceContext->IASetVertexBuffers(0, 1, &m_pVertexBuffer, &stride, &offset);
-
-	//4. Set Index Buffer
-	pDeviceContext->IASetIndexBuffer(m_pIndexBuffer, DXGI_FORMAT_R32_UINT, 0);
-
-	//5. Draw
-	D3DX11_TECHNIQUE_DESC techDesc{};
-	m_pTechnique->GetDesc(&techDesc);
-	for (UINT p = 0; p < techDesc.Passes; ++p)
+	switch (samplerState)
 	{
-		m_pTechnique->GetPassByIndex(p)->Apply(0, pDeviceContext);
-		pDeviceContext->DrawIndexed(m_NumIndices, 0, 0);
+	case SamplerState::Point:
+		m_pCurrentTechnique = m_pEffect->GetTechniqueByName("PointSamplingTechnique");
+		break;
+	case SamplerState::Linear:
+		m_pCurrentTechnique = m_pEffect->GetTechniqueByName("LinearSamplingTechnique");
+		break;
+	case SamplerState::Anisotropic:
+		m_pCurrentTechnique = m_pEffect->GetTechniqueByName("AnisotropicSamplingTechnique");
+		break;
+	default:
+		m_pCurrentTechnique = m_pEffect->GetTechniqueByIndex(0);
+		break;
 	}
 }
 
+
+//--------------------------------------------------
+//    Shared
+//--------------------------------------------------
+
+// Loaders
 void Mesh::LoadDiffuseTexture(const std::string& path, ID3D11Device* pDevice)
 {
 	Texture* texture = Texture::LoadFromFile(path, pDevice);
@@ -272,3 +239,9 @@ void Mesh::LoadSpecularMap(const std::string& path, ID3D11Device* pDevice)
 	m_upSpecularTxt.reset(texture);
 	m_pEffect->LoadTexture("gSpecularMap", texture);
 }
+
+// Mutators
+void Mesh::SetWorldMatrix(const Matrix& newWorldMatrix) { m_WorldMatrix = newWorldMatrix; }
+
+// Accessors
+const Matrix& Mesh::GetWorldMatrix() const { return m_WorldMatrix; }

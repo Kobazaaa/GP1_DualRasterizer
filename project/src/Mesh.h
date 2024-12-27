@@ -5,7 +5,7 @@
 #include "Effect.h"
 
 #include <vector>
-#include "Enums.h"
+#include "RenderStates.h"
 
 using namespace dae;
 
@@ -26,7 +26,6 @@ struct VertexOut
 	Vector3 tangent		{	   0.f, 0.f, 0.f };
 	Vector3 viewDir		{	   0.f, 0.f, 0.f };
 };
-
 enum class PrimitiveTopology
 {
 	TriangleList,
@@ -39,7 +38,7 @@ public:
 	//--------------------------------------------------
 	//    Constructors and Destructors
 	//--------------------------------------------------
-	Mesh(ID3D11Device* pDevice, const std::string& objFilePath, BaseEffect* pEffect);
+	Mesh(ID3D11Device* pDevice, const std::string& objFilePath, BaseEffect* pEffect, const bool hasTransparency = false);
 	~Mesh();
 
 	Mesh(const Mesh&) = delete;
@@ -50,56 +49,63 @@ public:
 	//--------------------------------------------------
 	//    Rendering
 	//--------------------------------------------------
-	void Render(ID3D11DeviceContext* pDeviceContext, bool renderWithCPU);
+	void RenderGPU(ID3D11DeviceContext* pDeviceContext) const;
 
 
 	//--------------------------------------------------
 	//    Software
 	//--------------------------------------------------
-	ColorRGB SampleDiffuse(const Vector2& interpUV) const;
+
+	// Sampling
+	ColorRGB SampleDiffuse(const Vector2& interpUV, float* alpha) const;
 	ColorRGB SamplePhong(const Vector3& dirToLight, const Vector3& viewDir, const Vector3& interpNormal, const Vector2& interpUV, float shininess) const;
 	Vector3 SampleNormalMap(const Vector3& interpNormal, const Vector3& interpTangent, const Vector2& interpUV) const;
 
+	// Accessors
 	std::vector<Vertex>& GetVerticesByReference();
 	std::vector<VertexOut>& GetVerticesOutByReference();
 	std::vector<uint32_t>& GetIndicesByReference();
-
-	void SetPrimitiveTopology(const PrimitiveTopology& primitiveTopology);
 	PrimitiveTopology GetPrimitiveTopology() const;
+	bool HasTransparency() const;
+
+	// Mutators
+	void SetPrimitiveTopology(const PrimitiveTopology& primitiveTopology);
 
 	//--------------------------------------------------
 	//    DirectX
 	//--------------------------------------------------
+	// Mutators
 	void SetTextureSamplingState(SamplerState samplerState);
 
 	//--------------------------------------------------
 	//    Shared
 	//--------------------------------------------------
+	// Loaders
 	void LoadDiffuseTexture(const std::string& path, ID3D11Device* pDevice);
 	void LoadNormalMap(const std::string& path, ID3D11Device* pDevice);
 	void LoadGlossinessMap(const std::string& path, ID3D11Device* pDevice);
 	void LoadSpecularMap(const std::string& path, ID3D11Device* pDevice);
 
+	// Mutators
 	void SetWorldMatrix(const Matrix& newWorldMatrix);
+
+	// Accessors
 	const Matrix& GetWorldMatrix() const;
 
 private:
 	//--------------------------------------------------
-	//    Rendering
-	//--------------------------------------------------
-	void RenderCPU();
-	void RenderGPU(ID3D11DeviceContext* pDeviceContext);
-
-
-	//--------------------------------------------------
 	//    Mesh Data
 	//--------------------------------------------------
 	Matrix m_WorldMatrix{ };
+
 	std::vector<Vertex> m_vVertices{};
 	std::vector<VertexOut> m_vVerticesOut{};
+
 	std::vector<uint32_t> m_vIndices{};
 	uint32_t m_NumIndices{};
+
 	PrimitiveTopology m_PrimitiveTopology{ PrimitiveTopology::TriangleList };
+	bool m_Transparency{ false };
 
 	//--------------------------------------------------
 	//    Software
@@ -114,7 +120,7 @@ private:
 	//    DirectX
 	//--------------------------------------------------
 	BaseEffect* m_pEffect{};
-	ID3DX11EffectTechnique* m_pTechnique{};
+	ID3DX11EffectTechnique* m_pCurrentTechnique{};
 
 	ID3D11InputLayout* m_pInputLayout{};
 	ID3D11Buffer* m_pVertexBuffer{};

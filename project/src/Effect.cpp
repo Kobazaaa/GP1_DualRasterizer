@@ -1,6 +1,9 @@
 #include "Effect.h"
 
 #pragma region BaseEffect
+//--------------------------------------------------
+//    Constructors and Destructors
+//--------------------------------------------------
 BaseEffect::BaseEffect(ID3D11Device* pDevice, const std::wstring& assetFile)
 {
 	m_pEffect = LoadEffect(pDevice, assetFile);
@@ -14,9 +17,13 @@ BaseEffect::BaseEffect(ID3D11Device* pDevice, const std::wstring& assetFile)
 }
 BaseEffect::~BaseEffect()
 {
-	if (m_pEffect)				m_pEffect->Release();
+	if (m_pMatWorldViewProjVariable) m_pMatWorldViewProjVariable->Release();
+	if (m_pEffect)					 m_pEffect->Release();
 }
 
+//--------------------------------------------------
+//    Effect Loader
+//--------------------------------------------------
 ID3DX11Effect* BaseEffect::LoadEffect(ID3D11Device* pDevice, const std::wstring& assetFile)
 {
 	HRESULT result;
@@ -67,6 +74,9 @@ ID3DX11Effect* BaseEffect::LoadEffect(ID3D11Device* pDevice, const std::wstring&
 	return pEffect;
 }
 
+//--------------------------------------------------
+//    Accessors
+//--------------------------------------------------
 ID3DX11Effect* BaseEffect::GetEffect() const
 {
 	return m_pEffect;
@@ -80,7 +90,6 @@ ID3DX11EffectTechnique* BaseEffect::GetTechniqueByName(const std::string& name) 
 
 	return technique;
 }
-
 ID3DX11EffectTechnique* BaseEffect::GetTechniqueByIndex(int index) const
 {
 	const auto technique = m_pEffect->GetTechniqueByIndex(index);
@@ -91,12 +100,14 @@ ID3DX11EffectTechnique* BaseEffect::GetTechniqueByIndex(int index) const
 	return technique;
 }
 
-void BaseEffect::SetWorldViewProjectionMatrix(const Matrix& worldViewProjectionMatrix)
+//--------------------------------------------------
+//    Mutators
+//--------------------------------------------------
+void BaseEffect::SetWorldViewProjectionMatrix(const Matrix& worldViewProjectionMatrix) const
 {
 	m_pMatWorldViewProjVariable->SetMatrix(reinterpret_cast<const float*>(&worldViewProjectionMatrix));
 }
-
-void BaseEffect::LoadTexture(const std::string& variableName, const Texture* pTexture)
+void BaseEffect::LoadTexture(const std::string& variableName, const Texture* pTexture) const
 {
 	auto variable = m_pEffect->GetVariableByName(variableName.c_str())->AsShaderResource();
 	if (!variable->IsValid())
@@ -109,7 +120,10 @@ void BaseEffect::LoadTexture(const std::string& variableName, const Texture* pTe
 }
 #pragma endregion
 
-#pragma region Effect
+#pragma region FullShadeEffect
+//--------------------------------------------------
+//    Constructors and Destructors
+//--------------------------------------------------
 FullShadeEffect::FullShadeEffect(ID3D11Device* pDevice, const std::wstring& assetFile)
 	: BaseEffect(pDevice, assetFile)
 {
@@ -123,25 +137,29 @@ FullShadeEffect::FullShadeEffect(ID3D11Device* pDevice, const std::wstring& asse
 			std::wcout << L"m_pVecCameraVariable not valid!\n";
 	}
 }
-
 FullShadeEffect::~FullShadeEffect()
 {
 	if (m_pVecCameraVariable)		m_pVecCameraVariable->Release();
 	if (m_pMatWorldVariable)		m_pMatWorldVariable->Release();
 }
 
-void FullShadeEffect::SetWorldMatrix(const Matrix& worldMatrix)
+//--------------------------------------------------
+//    Mutators
+//--------------------------------------------------
+void FullShadeEffect::SetWorldMatrix(const Matrix& worldMatrix) const
 {
 	m_pMatWorldVariable->SetMatrix(reinterpret_cast<const float*>(&worldMatrix));
 }
-
-void FullShadeEffect::SetCameraPosition(const Vector3& cameraPosition)
+void FullShadeEffect::SetCameraPosition(const Vector3& cameraPosition) const
 {
 	m_pVecCameraVariable->SetFloatVector(reinterpret_cast<const float*>(&cameraPosition));
 }
 #pragma endregion
 
 #pragma region FlatShadeEffect
+//--------------------------------------------------
+//    Constructors and Destructors
+//--------------------------------------------------
 FlatShadeEffect::FlatShadeEffect(ID3D11Device* pDevice, const std::wstring& assetFile)
 	: BaseEffect(pDevice, assetFile)
 {
@@ -152,12 +170,15 @@ FlatShadeEffect::FlatShadeEffect(ID3D11Device* pDevice, const std::wstring& asse
 			std::wcout << L"m_pMatWorldVariable not valid!\n";
 	}
 }
-
 FlatShadeEffect::~FlatShadeEffect()
 {
+	if (m_pMatWorldVariable) m_pMatWorldVariable->Release();
 }
 
-void FlatShadeEffect::SetWorldMatrix(const Matrix& worldMatrix)
+//--------------------------------------------------
+//    Mutators
+//--------------------------------------------------
+void FlatShadeEffect::SetWorldMatrix(const Matrix& worldMatrix) const
 {
 	m_pMatWorldVariable->SetMatrix(reinterpret_cast<const float*>(&worldMatrix));
 }

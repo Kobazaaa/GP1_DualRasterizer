@@ -6,6 +6,7 @@ enum class SamplerState
 	Linear,
 	Anisotropic
 };
+
 enum class ShadingMode
 {
 	ObservedArea,	// Lambert Cosine Law
@@ -13,6 +14,7 @@ enum class ShadingMode
 	Specular,		// Specular Color
 	Combined		// Diffuse + Specular + Ambient
 };
+
 enum class CullMode
 {
 	BackFace,

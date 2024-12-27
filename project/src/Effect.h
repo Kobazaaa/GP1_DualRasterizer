@@ -33,12 +33,15 @@ public:
 	//--------------------------------------------------
 	//    Mutators
 	//--------------------------------------------------
-	void SetWorldViewProjectionMatrix(const Matrix& worldViewProjectionMatrix);
-	void LoadTexture(const std::string& variableName, const Texture* pTexture);
+	void SetWorldViewProjectionMatrix(const Matrix& worldViewProjectionMatrix) const;
+	void LoadTexture(const std::string& variableName, const Texture* pTexture) const;
 
 protected:
 	ID3DX11Effect* m_pEffect{};
 
+	//--------------------------------------------------
+	//    Variables
+	//--------------------------------------------------
 	ID3DX11EffectMatrixVariable* m_pMatWorldViewProjVariable{};
 };
 
@@ -59,14 +62,10 @@ public:
 	//--------------------------------------------------
 	//    Mutators
 	//--------------------------------------------------
+	void SetWorldMatrix(const Matrix& worldMatrix) const;
+	void SetCameraPosition(const Vector3& cameraPosition) const;
 
-	void SetWorldMatrix(const Matrix& worldMatrix);
-	void SetCameraPosition(const Vector3& cameraPosition);
 private:
-	//--------------------------------------------------
-	//    Textures
-	//--------------------------------------------------
-
 	//--------------------------------------------------
 	//    Variables
 	//--------------------------------------------------
@@ -91,13 +90,9 @@ public:
 	//--------------------------------------------------
 	//    Mutators
 	//--------------------------------------------------
-	void SetWorldMatrix(const Matrix& worldMatrix);
+	void SetWorldMatrix(const Matrix& worldMatrix) const;
 
 private:
-	//--------------------------------------------------
-	//    Textures
-	//--------------------------------------------------
-
 	//--------------------------------------------------
 	//    Variables
 	//--------------------------------------------------

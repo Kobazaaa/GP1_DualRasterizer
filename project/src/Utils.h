@@ -2,7 +2,7 @@
 #include <fstream>
 #include "Math.h"
 #include "Renderer.h"
-#include "Enums.h"
+#include "RenderStates.h"
 
 namespace dae
 {

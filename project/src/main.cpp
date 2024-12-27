@@ -91,7 +91,7 @@ int main(int argc, char* args[])
 			case SDL_KEYUP:
 				//Test for a key
 				if (e.key.keysym.scancode == SDL_SCANCODE_F1)		// DONE
-					pRenderer->ToggleRenderMode();
+					pRenderer->ToggleRenderer();
 				if (e.key.keysym.scancode == SDL_SCANCODE_F2)		// DONE
 					pRenderer->ToggleMeshRotation();
 				if (e.key.keysym.scancode == SDL_SCANCODE_F3)		// DONE
