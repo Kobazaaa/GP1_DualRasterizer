@@ -108,9 +108,9 @@ ColorRGB Texture::Sample(const Vector2& uv, bool sampleAlpha, float* alpha) cons
 	const Uint8 bytesPerPixel = m_pSurface->format->BytesPerPixel;
 
 	// Retrieve the address of the pixel we need (startAddress + y * width + x * bpp)
-	Uint8* pPixelAddr = (Uint8*)m_pSurfacePixels + y * m_pSurface->pitch + x * bytesPerPixel;
-	// Convert the pixelAddress to a Uint32, since that is what the SDL_GetRGB expects
-	Uint32 pixelData = *(Uint32*)pPixelAddr;
+	Uint8* pPixelAddr = reinterpret_cast<Uint8*>(m_pSurfacePixels) + y * m_pSurface->pitch + x * bytesPerPixel;
+	// Convert the pixelAddress to an Uint32, since that is what the SDL_GetRGB expects
+	Uint32 pixelData = *reinterpret_cast<Uint32*>(pPixelAddr);
 
 	SDL_Color Color = { 0x00, 0x00, 0x00 };
 	Uint8 sampledAlpha = 0xFF;

@@ -20,11 +20,11 @@ struct Vertex
 struct VertexOut
 {
 	Vector4 position	{ 0.f, 0.f, 0.f, 0.f };
+	Vector3 worldPos	{	   0.f, 0.f, 0.f };
 	ColorRGB color		{	   colors::White };
 	Vector2 uv			{			0.f, 0.f };
 	Vector3 normal		{	   0.f, 0.f, 0.f };
 	Vector3 tangent		{	   0.f, 0.f, 0.f };
-	Vector3 viewDir		{	   0.f, 0.f, 0.f };
 };
 enum class PrimitiveTopology
 {

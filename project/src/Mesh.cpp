@@ -136,16 +136,16 @@ ColorRGB Mesh::SampleDiffuse(const Vector2& interpUV, float* alpha) const
 	if (m_upDiffuseTxt == nullptr) return {};
 	return m_upDiffuseTxt->Sample(interpUV, m_Transparency, alpha);
 }
-ColorRGB Mesh::SamplePhong(const Vector3& dirToLight, const Vector3& viewDir, const Vector3& interpNormal, const Vector2& interpUV, float shininess) const
+ColorRGB Mesh::SamplePhong(const Vector3& dirToLight, const Vector3& viewDir, const Vector3& interpNormal, const Vector2& interpUV, const float shininess) const
 {
 	if (m_upSpecularTxt == nullptr) return {};
 	if (m_upGlossTxt == nullptr) return {};
 
-	float ks = m_upSpecularTxt->Sample(interpUV).r;
-	float exp = m_upGlossTxt->Sample(interpUV).r * shininess;
+	const float ks = m_upSpecularTxt->Sample(interpUV).b;
+	const float exp = m_upGlossTxt->Sample(interpUV).b * shininess;
 
-	Vector3 reflect = Vector3::Reflect(dirToLight, interpNormal);
-	float cosAlpha{ std::max(Vector3::Dot(reflect, viewDir), 0.f) };
+	const Vector3 reflect = Vector3::Reflect(dirToLight, interpNormal);
+	const float cosAlpha{ std::max(Vector3::Dot(reflect, viewDir), 0.f) };
 	return ColorRGB(1, 1, 1) * ks * std::pow(cosAlpha, exp);
 }
 Vector3 Mesh::SampleNormalMap(const Vector3& interpNormal, const Vector3& interpTangent, const Vector2& interpUV) const

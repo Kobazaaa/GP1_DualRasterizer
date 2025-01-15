@@ -14,7 +14,7 @@ float gPI = 3.14159265358979323846f;
 float gLIGHT_INTENSITY = 7.f;
 float gSHININESS = 25.f;
 float3 gLIGHT_DIR = { 0.577f, -0.577f, 0.577f };
-float4 gAMBIENT = { 0.03f, 0.03f, 0.03f, 0.f };
+float4 gAMBIENT = { 0.025f, 0.025f, 0.025f, 0.f };
 
 //--------------------------------------------------
 //   Sampler States
@@ -67,8 +67,8 @@ struct VS_INPUT
     float3 Position         : POSITION;
     float3 Color            : COLOR;
     float2 UV               : TEXCOORD;
-    float3 normal           : NORMAL;
-    float3 tangent          : TANGENT;
+    float3 Normal           : NORMAL;
+    float3 Tangent          : TANGENT;
 };
 struct VS_OUTPUT
 {
@@ -76,13 +76,27 @@ struct VS_OUTPUT
     float4 WorldPosition    : WORLD;
     float3 Color            : COLOR;
     float2 UV               : TEXCOORD;
-    float3 normal           : NORMAL;
-    float3 tangent          : TANGENT;
+    float3 Normal           : NORMAL;
+    float3 Tangent          : TANGENT;
 };
 
 //--------------------------------------------------
 //   Helpful Functions
 //--------------------------------------------------
+float3 SampleNormal(VS_OUTPUT input, SamplerState samplerState)
+{
+    float3 binormal = cross(input.Normal, input.Tangent);
+    float4x4 tangentSpaceAxis = float4x4( input.Tangent.x,    input.Tangent.y,    input.Tangent.z,    0.0f,
+                                          binormal.x,         binormal.y,         binormal.z,         0.0f,
+                                          input.Normal.x,     input.Normal.y,     input.Normal.z,     0.0f,
+                                          0.0f,               0.0f,               0.0f,               1.0f);
+    
+    float3 normal = gNormalMap.Sample(samplerState, input.UV).rgb;
+    normal = 2.f * normal - float3(1, 1, 1);
+    normal = mul(normal, (float3x3) tangentSpaceAxis);
+    return normalize(normal);
+}
+
 float CalculateObservedArea(const float3 normal, const float3 lightDirection)
 {
     return dot(normal, lightDirection);
@@ -91,32 +105,34 @@ float4 GetDiffuseColor(const float2 UV, const SamplerState samplerState)
 {
     return gDiffuseMap.Sample(samplerState, UV) * gLIGHT_INTENSITY / gPI;
 }
-float4 GetSpecularColor(VS_OUTPUT input, const SamplerState samplerState)
+float4 GetSpecularColor(VS_OUTPUT input, const float3 normal, const SamplerState samplerState)
 {
     float3 invViewDir = normalize(gCameraPos - input.WorldPosition.xyz);
     
     float ks = gSpecularMap.Sample(samplerState, input.UV).r;
     float exp = gGlossinessMap.Sample(samplerState, input.UV).r * gSHININESS;
     
-    float3 ref = reflect(gLIGHT_DIR, input.normal);
+    float3 ref = reflect(normalize(gLIGHT_DIR), normal);
     float cosAlpha = max(dot(ref, invViewDir), 0);
     
     return float4(1, 1, 1, 1) * ks * pow(cosAlpha, exp);
 }
 
-
 float4 ShadePixel(VS_OUTPUT input, SamplerState samplerState)
 {
+    // Sample Normal
+    float3 normal = SampleNormal(input, samplerState);
+    
     // OA
-    float observedArea = CalculateObservedArea(input.normal, -gLIGHT_DIR);
+    float observedArea = CalculateObservedArea(normal, -normalize(gLIGHT_DIR));
     
     // Lambert Diffuse Color
     float4 diffuse = GetDiffuseColor(input.UV, samplerState);
     
     // Specular Phong
-    float4 specular = GetSpecularColor(input, samplerState);
-    
-    return (diffuse + specular + gAMBIENT) * observedArea;
+    float4 specular = GetSpecularColor(input, normal, samplerState);
+
+	return (diffuse + specular + gAMBIENT) * observedArea;
 }
 
 //--------------------------------------------------
@@ -137,8 +153,8 @@ VS_OUTPUT VS(VS_INPUT input)
     output.UV               = input.UV;
     
     // Normal
-    output.normal           = mul(normalize(input.normal), (float3x3) gWorldMatrix);
-    output.tangent          = mul(normalize(input.tangent), (float3x3) gWorldMatrix);
+    output.Normal           = mul(normalize(input.Normal), (float3x3) gWorldMatrix);
+    output.Tangent          = mul(normalize(input.Tangent), (float3x3) gWorldMatrix);
     
     return output;
 }

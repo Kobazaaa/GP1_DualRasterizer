@@ -76,7 +76,7 @@ namespace dae
 		//    Rasterizer Shared PRIVATE
 		//--------------------------------------------------
 		bool m_SoftwareRasterizer		{ true };
-		bool m_RotateMesh				{ false };
+		bool m_RotateMesh				{ true };
 		bool m_DoUniformColor			{ false };
 
 		const ColorRGB m_UNIFORM_COLOR	{ 0.1f, 0.1f, 0.1f };
@@ -114,7 +114,7 @@ namespace dae
 
 		bool m_IsInitialized			{ false };
 		bool m_FireVisible				{ true };
-		const ColorRGB m_HARDWARE_COLOR { 0.f, 0.f, 0.3f };
+		const ColorRGB m_HARDWARE_COLOR { 0.39f, 0.59f, 0.93f };
 
 		ID3D11Device* m_pDevice							{ nullptr };
 		ID3D11DeviceContext* m_pDeviceContext			{ nullptr };

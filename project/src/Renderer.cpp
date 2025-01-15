@@ -37,19 +37,21 @@ namespace dae {
 		}
 
 		// Initialize Meshes and Effects
-		m_pVehicleEffect = new FullShadeEffect(m_pDevice, L"resources/PosCol3D.fx");
+		m_pVehicleEffect = new FullShadeEffect(m_pDevice, L"resources/Vehicle.fx");
 		m_vMeshes.push_back(new Mesh(m_pDevice, "resources/vehicle.obj", m_pVehicleEffect, false));
 		m_vMeshes.back()->LoadDiffuseTexture("resources/vehicle_diffuse.png", m_pDevice);
 		m_vMeshes.back()->LoadNormalMap("resources/vehicle_normal.png", m_pDevice);
 		m_vMeshes.back()->LoadSpecularMap("resources/vehicle_specular.png", m_pDevice);
 		m_vMeshes.back()->LoadGlossinessMap("resources/vehicle_gloss.png", m_pDevice);
+		m_vMeshes.back()->SetWorldMatrix(Matrix::CreateTranslation(0.f, 0.f, 50.f));
 
 		m_pFireEffect = new FlatShadeEffect(m_pDevice, L"resources/Fire.fx");
 		m_vMeshes.push_back(new Mesh(m_pDevice, "resources/fireFX.obj", m_pFireEffect, true));
 		m_vMeshes.back()->LoadDiffuseTexture("resources/fireFX_diffuse.png", m_pDevice);
+		m_vMeshes.back()->SetWorldMatrix(Matrix::CreateTranslation(0.f, 0.f, 50.f));
 
 		// Initialize Camera
-		m_Camera.Initialize(45.f, { 0.f, 0.f , -10.f }, m_Width / static_cast<float>(m_Height), 0.1f, 1000.f);
+		m_Camera.Initialize(45.f, { 0.f, 0.f, 0.f }, static_cast<float>(m_Width) / static_cast<float>(m_Height), 0.1f, 100.f);
 	}
 	Renderer::~Renderer()
 	{
@@ -76,7 +78,6 @@ namespace dae {
 		if (m_pRasterizerStateNone) m_pRasterizerStateNone->Release();
 
 		delete[] m_pDepthBufferPixels;
-
 	}
 
 
@@ -94,7 +95,7 @@ namespace dae {
 		{
 			for (auto& m : m_vMeshes)
 			{
-				constexpr float rotationSpeedRadians = 1;
+				constexpr float rotationSpeedRadians = 45 * TO_RADIANS;
 				m->SetWorldMatrix(Matrix::CreateRotationY(pTimer->GetElapsed() * rotationSpeedRadians)
 											* m->GetWorldMatrix());
 			}
@@ -535,8 +536,7 @@ namespace dae {
 
 			verticesOut[index].normal = worldMatrix.TransformVector(vertices[index].normal).Normalized();
 			verticesOut[index].tangent = worldMatrix.TransformVector(vertices[index].tangent).Normalized();
-			verticesOut[index].viewDir = (worldMatrix.TransformPoint(verticesOut[index].position)
-				- m_Camera.origin.ToPoint4()).Normalized();
+			verticesOut[index].worldPos = worldMatrix.TransformPoint(vertices[index].position);
 		}
 	}
 	void Renderer::RasterizeVertex(VertexOut& vertex) const
@@ -597,17 +597,16 @@ namespace dae {
 		output.tangent.Normalize();
 
 		// Correctly interpolated viewDirection
-		const Vector3& VD0 = triangle[0].viewDir;
-		const Vector3& VD1 = triangle[1].viewDir;
-		const Vector3& VD2 = triangle[2].viewDir;
-		output.viewDir = InterpolateAttribute(VD0, VD1, VD2, W0, W1, W2, wInterpolated, weights);
-		output.viewDir.Normalize();
+		const Vector3& WP0 = triangle[0].worldPos;
+		const Vector3& WP1 = triangle[1].worldPos;
+		const Vector3& WP2 = triangle[2].worldPos;
+		output.worldPos = InterpolateAttribute(WP0, WP1, WP2, W0, W1, W2, wInterpolated, weights);
 	}
 
 	ColorRGB Renderer::PixelShading(const VertexOut& v, Mesh* m, float* alpha) const
 	{
 		// Ambient Color
-		constexpr ColorRGB ambient = { 0.03f, 0.03f, 0.03f };
+		constexpr ColorRGB ambient{ 0.025f, 0.025f, 0.025f };
 
 		// Set up the light
 		const Vector3 lightDirection = { 0.577f , -0.577f , 0.577f };
@@ -631,8 +630,9 @@ namespace dae {
 
 
 		// Calculate the specular
+		Vector3 viewDir = (v.worldPos - m_Camera.origin).Normalized();
 		constexpr float shininess = 25.f;
-		const ColorRGB specular = m->SamplePhong(directionToLight, v.viewDir, sampledNormal, v.uv, shininess);
+		const ColorRGB specular = m->SamplePhong(directionToLight, viewDir, sampledNormal, v.uv, shininess);
 
 
 		switch (m_CurrentShadingMode)
