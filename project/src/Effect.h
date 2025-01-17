@@ -35,6 +35,8 @@ public:
 	//--------------------------------------------------
 	void SetWorldViewProjectionMatrix(const Matrix& worldViewProjectionMatrix) const;
 	void LoadTexture(const std::string& variableName, const Texture* pTexture) const;
+	void SetMatrixByName(const std::string& variableName, const Matrix& m) const;
+	void SetShaderResourceView(const std::string& variableName, ID3D11ShaderResourceView* pSRV) const;
 
 protected:
 	ID3DX11Effect* m_pEffect{};
@@ -64,12 +66,14 @@ public:
 	//--------------------------------------------------
 	void SetWorldMatrix(const Matrix& worldMatrix) const;
 	void SetCameraPosition(const Vector3& cameraPosition) const;
+	void SetLightViewProj(const Matrix& lvp) const;
 
 private:
 	//--------------------------------------------------
 	//    Variables
 	//--------------------------------------------------
 	ID3DX11EffectMatrixVariable* m_pMatWorldVariable{};
+	ID3DX11EffectMatrixVariable* m_pMatLVPVariable{};
 	ID3DX11EffectVectorVariable* m_pVecCameraVariable{};
 };
 
@@ -99,3 +103,32 @@ private:
 	ID3DX11EffectMatrixVariable* m_pMatWorldVariable{};
 
 };
+
+class ShadowMapEffect final : public BaseEffect
+{
+public:
+	//--------------------------------------------------
+	//    Constructors and Destructors
+	//--------------------------------------------------
+	ShadowMapEffect(ID3D11Device* pDevice, const std::wstring& assetFile);
+	virtual ~ShadowMapEffect() override;
+
+	ShadowMapEffect(const ShadowMapEffect& other) = delete;
+	ShadowMapEffect(ShadowMapEffect&& other) noexcept = delete;
+	ShadowMapEffect& operator=(const ShadowMapEffect& rhs) = delete;
+	ShadowMapEffect& operator=(ShadowMapEffect&& rhs) noexcept = delete;
+
+	//--------------------------------------------------
+	//    Mutators
+	//--------------------------------------------------
+	void SetWorldViewProjMatrix(const Matrix& wvpMatrix) const;
+
+private:
+	//--------------------------------------------------
+	//    Variables
+	//--------------------------------------------------
+	ID3DX11EffectMatrixVariable* m_pMatWVPVariable{};
+
+
+};
+

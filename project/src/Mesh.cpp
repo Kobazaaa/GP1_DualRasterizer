@@ -31,6 +31,7 @@ Mesh::Mesh(ID3D11Device* pDevice, const std::string& objFilePath, BaseEffect* pE
 	vertexDesc[1].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
 
 	vertexDesc[2].SemanticName = "TEXCOORD";
+	vertexDesc[2].SemanticIndex = 0;
 	vertexDesc[2].Format = DXGI_FORMAT_R32G32_FLOAT;
 	vertexDesc[2].AlignedByteOffset = offsetof(Vertex, uv);
 	vertexDesc[2].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
@@ -93,6 +94,7 @@ Mesh::~Mesh()
 	m_pVertexBuffer->Release();
 	m_pInputLayout->Release();
 
+
 	delete m_pEffect;
 }
 
@@ -102,7 +104,17 @@ Mesh::~Mesh()
 void Mesh::RenderGPU(ID3D11DeviceContext* pDeviceContext) const
 {
 	//1. Set Primitive Topology
-	pDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	switch (m_PrimitiveTopology)
+	{
+	case PrimitiveTopology::TriangleList:
+		pDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		break;
+	case PrimitiveTopology::TriangleStrip:
+		pDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+		break;
+	default:
+		pDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	}
 
 	//2. Set Input Layout
 	pDeviceContext->IASetInputLayout(m_pInputLayout);
@@ -150,7 +162,7 @@ ColorRGB Mesh::SamplePhong(const Vector3& dirToLight, const Vector3& viewDir, co
 }
 Vector3 Mesh::SampleNormalMap(const Vector3& interpNormal, const Vector3& interpTangent, const Vector2& interpUV) const
 {
-	if (m_upNormalTxt == nullptr) return {};
+	if (m_upNormalTxt == nullptr) return { interpNormal };
 
 	// Calculate the tangent space matrix
 	Vector3 binormal = Vector3::Cross(interpNormal, interpTangent);
@@ -180,6 +192,21 @@ std::vector<VertexOut>& Mesh::GetVerticesOutByReference()	{ return m_vVerticesOu
 std::vector<uint32_t>& Mesh::GetIndicesByReference()		{ return m_vIndices; }
 PrimitiveTopology Mesh::GetPrimitiveTopology() const		{ return m_PrimitiveTopology; }
 bool Mesh::HasTransparency() const							{ return m_Transparency; }
+
+ID3D11Buffer* Mesh::GetVertexBuffer() const
+{
+	return m_pVertexBuffer;
+}
+
+ID3D11Buffer* Mesh::GetIndexBuffer() const
+{
+	return m_pIndexBuffer;
+}
+
+uint32_t Mesh::GetNumIndices() const
+{
+	return m_NumIndices;
+}
 
 // Mutators
 void Mesh::SetPrimitiveTopology(const PrimitiveTopology& primitiveTopology) { m_PrimitiveTopology = primitiveTopology; }

@@ -1,8 +1,10 @@
 #pragma once
+#include <map>
 #include <vector>
 
 #include "Effect.h"
 #include "Camera.h"
+#include "DirectionalLight.h"
 #include "Mesh.h"
 #include "RenderStates.h"
 
@@ -58,6 +60,8 @@ namespace dae
 		void ToggleFire();
 
 	private:
+		DirectionalLight m_Light;
+
 		//--------------------------------------------------
 		//    Window
 		//--------------------------------------------------
@@ -75,13 +79,14 @@ namespace dae
 		//--------------------------------------------------
 		//    Rasterizer Shared PRIVATE
 		//--------------------------------------------------
-		bool m_SoftwareRasterizer		{ true };
+		bool m_SoftwareRasterizer		{ false };
 		bool m_RotateMesh				{ true };
 		bool m_DoUniformColor			{ false };
 
 		const ColorRGB m_UNIFORM_COLOR	{ 0.1f, 0.1f, 0.1f };
 
-		std::vector<Mesh*> m_vMeshes	{ };
+		std::map<const std::string, Mesh*> m_vMeshes{};
+
 		Camera m_Camera					{ };
 
 		//--------------------------------------------------
@@ -111,6 +116,7 @@ namespace dae
 
 		FullShadeEffect* m_pVehicleEffect;
 		FlatShadeEffect* m_pFireEffect;
+		FlatShadeEffect* m_pPlaneEffect;
 
 		bool m_IsInitialized			{ false };
 		bool m_FireVisible				{ true };

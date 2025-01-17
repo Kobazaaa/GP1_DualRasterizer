@@ -118,6 +118,30 @@ void BaseEffect::LoadTexture(const std::string& variableName, const Texture* pTe
 
 	variable->SetResource(pTexture->GetSRV());
 }
+
+void BaseEffect::SetMatrixByName(const std::string& variableName, const Matrix& m) const
+{
+	auto variable = m_pEffect->GetVariableByName(variableName.c_str())->AsMatrix();
+	if (!variable->IsValid())
+	{
+		std::cout << "Variable " << variableName << " was not valid variable!\n";
+		return;
+	}
+
+	variable->SetMatrix(reinterpret_cast<const float*>(&m));
+}
+
+void BaseEffect::SetShaderResourceView(const std::string& variableName, ID3D11ShaderResourceView* pSRV) const
+{
+	auto variable = m_pEffect->GetVariableByName(variableName.c_str())->AsShaderResource();
+	if (!variable->IsValid())
+	{
+		std::cout << "Variable " << variableName << " was not valid variable to load a Shader Resource in!\n";
+		return;
+	}
+
+	variable->SetResource(pSRV);
+}
 #pragma endregion
 
 #pragma region FullShadeEffect
@@ -132,6 +156,9 @@ FullShadeEffect::FullShadeEffect(ID3D11Device* pDevice, const std::wstring& asse
 		m_pMatWorldVariable = m_pEffect->GetVariableByName("gWorldMatrix")->AsMatrix();
 		if (!m_pMatWorldVariable->IsValid())
 			std::wcout << L"m_pMatWorldVariable not valid!\n";
+		m_pMatLVPVariable = m_pEffect->GetVariableByName("gLightViewProj")->AsMatrix();
+		if (!m_pMatLVPVariable->IsValid())
+			std::wcout << L"m_pMatLVPVariable not valid!\n";
 		m_pVecCameraVariable = m_pEffect->GetVariableByName("gCameraPos")->AsVector();
 		if (!m_pVecCameraVariable->IsValid())
 			std::wcout << L"m_pVecCameraVariable not valid!\n";
@@ -140,6 +167,7 @@ FullShadeEffect::FullShadeEffect(ID3D11Device* pDevice, const std::wstring& asse
 FullShadeEffect::~FullShadeEffect()
 {
 	if (m_pVecCameraVariable)		m_pVecCameraVariable->Release();
+	if (m_pMatLVPVariable)			m_pMatLVPVariable->Release();
 	if (m_pMatWorldVariable)		m_pMatWorldVariable->Release();
 }
 
@@ -153,6 +181,11 @@ void FullShadeEffect::SetWorldMatrix(const Matrix& worldMatrix) const
 void FullShadeEffect::SetCameraPosition(const Vector3& cameraPosition) const
 {
 	m_pVecCameraVariable->SetFloatVector(reinterpret_cast<const float*>(&cameraPosition));
+}
+
+void FullShadeEffect::SetLightViewProj(const Matrix& lvp) const
+{
+	m_pMatLVPVariable->SetMatrix(reinterpret_cast<const float*>(&lvp));
 }
 #pragma endregion
 
@@ -181,5 +214,34 @@ FlatShadeEffect::~FlatShadeEffect()
 void FlatShadeEffect::SetWorldMatrix(const Matrix& worldMatrix) const
 {
 	m_pMatWorldVariable->SetMatrix(reinterpret_cast<const float*>(&worldMatrix));
+}
+
+#pragma endregion
+
+#pragma region ShadowMapEffect
+//--------------------------------------------------
+//    Constructors and Destructors
+//--------------------------------------------------
+ShadowMapEffect::ShadowMapEffect(ID3D11Device* pDevice, const std::wstring& assetFile)
+	: BaseEffect(pDevice, assetFile)
+{
+	if (m_pEffect)
+	{
+		m_pMatWVPVariable = m_pEffect->GetVariableByName("gWorldViewProj")->AsMatrix();
+		if (!m_pMatWVPVariable->IsValid())
+			std::wcout << L"m_pMatWVPVariable not valid!\n";
+	}
+}
+ShadowMapEffect::~ShadowMapEffect()
+{
+	if (m_pMatWVPVariable) m_pMatWVPVariable->Release();
+}
+
+//--------------------------------------------------
+//    Mutators
+//--------------------------------------------------
+void ShadowMapEffect::SetWorldViewProjMatrix(const Matrix& wvpMatrix) const
+{
+	m_pMatWVPVariable->SetMatrix(reinterpret_cast<const float*>(&wvpMatrix));
 }
 #pragma endregion

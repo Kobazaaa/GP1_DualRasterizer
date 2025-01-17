@@ -67,6 +67,9 @@ public:
 	std::vector<uint32_t>& GetIndicesByReference();
 	PrimitiveTopology GetPrimitiveTopology() const;
 	bool HasTransparency() const;
+	ID3D11Buffer* GetVertexBuffer() const;
+	ID3D11Buffer* GetIndexBuffer() const;
+	uint32_t GetNumIndices() const;
 
 	// Mutators
 	void SetPrimitiveTopology(const PrimitiveTopology& primitiveTopology);
@@ -126,3 +129,4 @@ private:
 	ID3D11Buffer* m_pVertexBuffer{};
 	ID3D11Buffer* m_pIndexBuffer{};
 };
+

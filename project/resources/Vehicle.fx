@@ -3,22 +3,34 @@
 //--------------------------------------------------
 float4x4 gWorldMatrix       : WorldMatrix;
 float4x4 gWorldViewProj     : WorldViewProjection;
+float4x4 gLightViewProj     : LightViewProj;
 float3 gCameraPos           : CAMERA;
 
 Texture2D gDiffuseMap       : DiffuseMap;
 Texture2D gNormalMap        : NormalMap;
 Texture2D gSpecularMap      : SpecularMap;
 Texture2D gGlossinessMap    : GlossinessMap;
+Texture2D gShadowMap        : ShadowMap;
 
 float gPI = 3.14159265358979323846f;
 float gLIGHT_INTENSITY = 7.f;
 float gSHININESS = 25.f;
 float3 gLIGHT_DIR = { 0.577f, -0.577f, 0.577f };
 float4 gAMBIENT = { 0.025f, 0.025f, 0.025f, 0.f };
+float gSHADOW_BIAS = 0.005f;
+float gSHADOW_MULTIPLIER = 0.5f;
 
 //--------------------------------------------------
 //   Sampler States
 //--------------------------------------------------
+SamplerState samShadow
+{
+    Filter = ANISOTROPIC;
+    AddressU = Border;
+    AddressV = Border;
+
+    BorderColor = float4(100.0f, 100.0f, 100.0f, 100.0f);
+};
 SamplerState samPoint
 {
     Filter = MIN_MAG_MIP_POINT;
@@ -76,6 +88,7 @@ struct VS_OUTPUT
     float4 WorldPosition    : WORLD;
     float3 Color            : COLOR;
     float2 UV               : TEXCOORD;
+    float4 ShadowPos        : TEXCOORD1;
     float3 Normal           : NORMAL;
     float3 Tangent          : TANGENT;
 };
@@ -101,10 +114,12 @@ float CalculateObservedArea(const float3 normal, const float3 lightDirection)
 {
     return dot(normal, lightDirection);
 }
+
 float4 GetDiffuseColor(const float2 UV, const SamplerState samplerState)
 {
     return gDiffuseMap.Sample(samplerState, UV) * gLIGHT_INTENSITY / gPI;
 }
+
 float4 GetSpecularColor(VS_OUTPUT input, const float3 normal, const SamplerState samplerState)
 {
     float3 invViewDir = normalize(gCameraPos - input.WorldPosition.xyz);
@@ -116,6 +131,17 @@ float4 GetSpecularColor(VS_OUTPUT input, const float3 normal, const SamplerState
     float cosAlpha = max(dot(ref, invViewDir), 0);
     
     return float4(1, 1, 1, 1) * ks * pow(cosAlpha, exp);
+}
+
+float GetShadowMultiplier(VS_OUTPUT input)
+{
+    float shadowDepth = gShadowMap.Sample(samShadow, input.ShadowPos.xy).r;
+    float currentDepth = input.ShadowPos.z / input.ShadowPos.w;
+    
+    if (currentDepth - gSHADOW_BIAS > shadowDepth)
+        return gSHADOW_MULTIPLIER;
+    else
+        return 1.f;
 }
 
 float4 ShadePixel(VS_OUTPUT input, SamplerState samplerState)
@@ -132,7 +158,9 @@ float4 ShadePixel(VS_OUTPUT input, SamplerState samplerState)
     // Specular Phong
     float4 specular = GetSpecularColor(input, normal, samplerState);
 
-	return (diffuse + specular + gAMBIENT) * observedArea;
+   float mult = GetShadowMultiplier(input);
+    
+	return (diffuse + specular + gAMBIENT) * observedArea * mult;
 }
 
 //--------------------------------------------------
@@ -151,7 +179,12 @@ VS_OUTPUT VS(VS_INPUT input)
     
     // UV
     output.UV               = input.UV;
-    
+    float4 shadowPos = mul(float4(output.WorldPosition.xyz, 1), gLightViewProj);
+    shadowPos.xy /= shadowPos.w;
+    shadowPos.xy = shadowPos.xy * 0.5f + 0.5f;
+    shadowPos.y = 1 - shadowPos.y;
+    output.ShadowPos = shadowPos;
+
     // Normal
     output.Normal           = mul(normalize(input.Normal), (float3x3) gWorldMatrix);
     output.Tangent          = mul(normalize(input.Tangent), (float3x3) gWorldMatrix);

@@ -6,6 +6,7 @@
 #include <execution>
 #include <iostream>
 #include "ConsoleTextSettings.h"
+#include "DirectionalLight.h"
 
 namespace dae {
 	//--------------------------------------------------
@@ -38,26 +39,33 @@ namespace dae {
 
 		// Initialize Meshes and Effects
 		m_pVehicleEffect = new FullShadeEffect(m_pDevice, L"resources/Vehicle.fx");
-		m_vMeshes.push_back(new Mesh(m_pDevice, "resources/vehicle.obj", m_pVehicleEffect, false));
-		m_vMeshes.back()->LoadDiffuseTexture("resources/vehicle_diffuse.png", m_pDevice);
-		m_vMeshes.back()->LoadNormalMap("resources/vehicle_normal.png", m_pDevice);
-		m_vMeshes.back()->LoadSpecularMap("resources/vehicle_specular.png", m_pDevice);
-		m_vMeshes.back()->LoadGlossinessMap("resources/vehicle_gloss.png", m_pDevice);
-		m_vMeshes.back()->SetWorldMatrix(Matrix::CreateTranslation(0.f, 0.f, 50.f));
+		m_vMeshes["0Vehicle"] = new Mesh(m_pDevice, "resources/vehicle.obj", m_pVehicleEffect, false);
+		m_vMeshes["0Vehicle"]->LoadDiffuseTexture("resources/vehicle_diffuse.png", m_pDevice);
+		m_vMeshes["0Vehicle"]->LoadNormalMap("resources/vehicle_normal.png", m_pDevice);
+		m_vMeshes["0Vehicle"]->LoadSpecularMap("resources/vehicle_specular.png", m_pDevice);
+		m_vMeshes["0Vehicle"]->LoadGlossinessMap("resources/vehicle_gloss.png", m_pDevice);
+		m_vMeshes["0Vehicle"]->SetWorldMatrix(Matrix::CreateTranslation(0.f, 0.f, 50.f));
 
 		m_pFireEffect = new FlatShadeEffect(m_pDevice, L"resources/Fire.fx");
-		m_vMeshes.push_back(new Mesh(m_pDevice, "resources/fireFX.obj", m_pFireEffect, true));
-		m_vMeshes.back()->LoadDiffuseTexture("resources/fireFX_diffuse.png", m_pDevice);
-		m_vMeshes.back()->SetWorldMatrix(Matrix::CreateTranslation(0.f, 0.f, 50.f));
+		m_vMeshes["1Fire"] = new Mesh(m_pDevice, "resources/fireFX.obj", m_pFireEffect, true);
+		m_vMeshes["1Fire"]->LoadDiffuseTexture("resources/fireFX_diffuse.png", m_pDevice);
+		m_vMeshes["1Fire"]->SetWorldMatrix(Matrix::CreateTranslation(0.f, 0.f, 50.f));
+
+
+		m_pPlaneEffect = new FlatShadeEffect(m_pDevice, L"resources/Plane.fx");
+		m_vMeshes["0Plane"] = new Mesh(m_pDevice, "resources/plane.obj", m_pPlaneEffect, false);
+		m_vMeshes["0Plane"]->LoadDiffuseTexture("resources/plane_diffuse.png", m_pDevice);
+		m_vMeshes["0Plane"]->SetWorldMatrix(Matrix::CreateTranslation(0.f, -10.f, 50.f));
 
 		// Initialize Camera
-		m_Camera.Initialize(45.f, { 0.f, 0.f, 0.f }, static_cast<float>(m_Width) / static_cast<float>(m_Height), 0.1f, 100.f);
+		m_Camera.Initialize(45.f, { 0.f, 0.f, 0.f }, static_cast<float>(m_Width) / static_cast<float>(m_Height), 0.1f, 10000.f);
+		m_Light.Initialize(m_pDevice, { 0.577f , -0.577f , 0.577f }, 7.0f);
 	}
 	Renderer::~Renderer()
 	{
 		for (auto& mesh : m_vMeshes)
 		{
-			delete mesh;
+			delete mesh.second;
 		}
 
 		if (m_pRenderTargetView)		m_pRenderTargetView->Release();
@@ -87,24 +95,29 @@ namespace dae {
 	void Renderer::Update(const Timer* pTimer)
 	{
 		m_Camera.Update(pTimer);
+		m_Light.UpdateViewProjection({0,0,50});
 
-		m_pVehicleEffect->SetWorldMatrix(m_vMeshes[0]->GetWorldMatrix());
+		m_pVehicleEffect->SetWorldMatrix(m_vMeshes["0Vehicle"]->GetWorldMatrix());
 		m_pVehicleEffect->SetCameraPosition(m_Camera.origin);
+		m_pPlaneEffect->SetWorldMatrix(m_vMeshes["0Plane"]->GetWorldMatrix());
+		//m_pPlaneEffect->SetCameraPosition(m_Camera.origin);
 
 		if (m_RotateMesh)
 		{
-			for (auto& m : m_vMeshes)
-			{
-				constexpr float rotationSpeedRadians = 45 * TO_RADIANS;
-				m->SetWorldMatrix(Matrix::CreateRotationY(pTimer->GetElapsed() * rotationSpeedRadians)
-											* m->GetWorldMatrix());
-			}
+			constexpr float rotationSpeedRadians = 45 * TO_RADIANS;
+			m_vMeshes["0Vehicle"]->SetWorldMatrix(Matrix::CreateRotationY(pTimer->GetElapsed() * rotationSpeedRadians)
+				* m_vMeshes["0Vehicle"]->GetWorldMatrix());
+			m_vMeshes["1Fire"]->SetWorldMatrix(Matrix::CreateRotationY(pTimer->GetElapsed() * rotationSpeedRadians)
+				* m_vMeshes["1Fire"]->GetWorldMatrix());
 		}
 
-		Matrix wvpMatrix = m_vMeshes[0]->GetWorldMatrix() * m_Camera.GetViewMatrix() * m_Camera.GetProjectionMatrix();
+		Matrix wvpMatrix = m_vMeshes["0Vehicle"]->GetWorldMatrix() * m_Camera.GetViewMatrix() * m_Camera.GetProjectionMatrix();
 		m_pVehicleEffect->SetWorldViewProjectionMatrix(wvpMatrix);
 
-		wvpMatrix = m_vMeshes[1]->GetWorldMatrix() * m_Camera.GetViewMatrix() * m_Camera.GetProjectionMatrix();
+		wvpMatrix = m_vMeshes["0Plane"]->GetWorldMatrix() * m_Camera.GetViewMatrix() * m_Camera.GetProjectionMatrix();
+		m_pPlaneEffect->SetWorldViewProjectionMatrix(wvpMatrix);
+
+		wvpMatrix = m_vMeshes["1Fire"]->GetWorldMatrix() * m_Camera.GetViewMatrix() * m_Camera.GetProjectionMatrix();
 		m_pFireEffect->SetWorldViewProjectionMatrix(wvpMatrix);
 
 	}
@@ -144,11 +157,33 @@ namespace dae {
 			m_pDeviceContext->ClearDepthStencilView(m_pDepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.f, 0);
 
 
-			m_pDeviceContext->RSSetState(m_pCurrentRasterizerState);
 			// 2. SET PIPELINE + INVOKE DRAW CALLS (= RENDER)
-			for (int meshIdx{}; meshIdx < (m_FireVisible + 1); ++meshIdx)
+			m_Light.RenderShadowMap(m_pDeviceContext, m_vMeshes);
+
+
+			m_pDeviceContext->OMSetRenderTargets(1, &m_pRenderTargetView, m_pDepthStencilView);
+			D3D11_VIEWPORT viewport{};
+			viewport.Width = static_cast<float>(m_Width);
+			viewport.Height = static_cast<float>(m_Height);
+			viewport.TopLeftX = 0.f;
+			viewport.TopLeftY = 0.f;
+			viewport.MinDepth = 0.f;
+			viewport.MaxDepth = 1.f;
+			m_pDeviceContext->RSSetViewports(1, &viewport);
+
+			for (auto& element : m_vMeshes)
 			{
-				Mesh* currentMesh = m_vMeshes[meshIdx];
+				Mesh* currentMesh = element.second;
+
+				if (!m_FireVisible and currentMesh->HasTransparency()) continue;
+
+				m_pVehicleEffect->SetShaderResourceView("gShadowMap", m_Light.GetShadowMapSRV());
+				m_pVehicleEffect->SetMatrixByName("gLightViewProj", m_Light.GetViewMatrix() * m_Light.GetProjectionMatrix());
+
+				m_pPlaneEffect->SetShaderResourceView("gShadowMap", m_Light.GetShadowMapSRV());
+				m_pPlaneEffect->SetMatrixByName("gLightViewProj", m_Light.GetViewMatrix() * m_Light.GetProjectionMatrix());
+				
+				m_pDeviceContext->RSSetState(m_pCurrentRasterizerState);
 				currentMesh->RenderGPU(m_pDeviceContext);
 			}
 
@@ -273,7 +308,7 @@ namespace dae {
 
 		for (const auto& m : m_vMeshes)
 		{
-			m->SetTextureSamplingState(m_CurrentSamplerState);
+			m.second->SetTextureSamplingState(m_CurrentSamplerState);
 		}
 	}
 	void Renderer::ToggleFire()
@@ -292,9 +327,11 @@ namespace dae {
 		std::array<VertexOut, 3> triangleNDC{};
 		std::array<VertexOut, 3> triangleRasterVertices{};
 
-		for (int triangleMeshIndex{}; triangleMeshIndex < (m_FireVisible + 1); ++triangleMeshIndex)
+		for (auto& element : m_vMeshes)
 		{
-			Mesh* currentMesh = m_vMeshes[triangleMeshIndex];
+			Mesh* currentMesh = element.second;
+			if (!m_FireVisible and currentMesh->HasTransparency()) continue;
+
 			auto& verticesOut = currentMesh->GetVerticesOutByReference();
 			auto& vertices = currentMesh->GetVerticesByReference();
 			auto& indices = currentMesh->GetIndicesByReference();
@@ -427,7 +464,7 @@ namespace dae {
 							v0, v1, v2, pixelCoord, invArea);
 
 						// Check if our barycentric coordinates are valid, if not, skip to the next pixel
-						if (!AreBarycentricValid(barycentricCoords, (triangleMeshIndex == 1) ? CullMode::None : m_CurrentCullMode)) continue;
+						if (!AreBarycentricValid(barycentricCoords, (currentMesh->HasTransparency()) ? CullMode::None : m_CurrentCullMode)) continue;
 
 						// Now we interpolated both our Z and W depths
 						InterpolateDepths(zBufferValue, wInterpolated, triangleRasterVertices, barycentricCoords);
@@ -460,7 +497,7 @@ namespace dae {
 						}
 
 						// If our alpha is smaller than 0.999f, and thus we have (noticeable) transparency, blend the color with whatever is currently already in the buffer
-						if (alpha < 0.999f)
+						//if (alpha < 0.999f)
 						{
 							// Request the color in the buffer
 							SDL_Color bufferColor{};
@@ -624,7 +661,7 @@ namespace dae {
 
 		// Calculate the lambert diffuse color
 		const ColorRGB cd = m->SampleDiffuse(v.uv, alpha);
-		if (m->HasTransparency()) return cd;
+		if (m->HasTransparency() or sampledNormal == v.normal) return cd;
 		constexpr float kd = 7.f;
 		const ColorRGB lambertDiffuse = (cd * kd) * ONE_DIV_PI;
 

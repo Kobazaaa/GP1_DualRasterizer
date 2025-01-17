@@ -136,6 +136,17 @@ namespace dae {
 		return out;
 	}
 
+	Matrix Matrix::CreateOrthographicLH(float viewWidth, float viewHeight, float zn, float zf)
+	{
+		return Matrix
+		(
+			{ 2.f / viewWidth,	0,					0,					0 },
+			{ 0,				2.f / viewHeight,	0,					0 },
+			{ 0,				0,					1.f / (zf - zn),	0 },
+			{ 0,				0,					-zn / (zf - zn),	1 }
+		);
+	}
+
 	Matrix Matrix::Inverse(const Matrix& m)
 	{
 		Matrix out{ m };
