@@ -136,6 +136,9 @@ float4 GetSpecularColor(VS_OUTPUT input, const float3 normal, const SamplerState
 float GetShadowMultiplier(VS_OUTPUT input)
 {
     float shadowDepth = gShadowMap.Sample(samShadow, input.ShadowPos.xy).r;
+    if (shadowDepth == 0) // if shadowmap == null
+        return 1.f;
+    
     float currentDepth = input.ShadowPos.z / input.ShadowPos.w;
     
     if (currentDepth - gSHADOW_BIAS > shadowDepth)

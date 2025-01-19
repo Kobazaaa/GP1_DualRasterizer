@@ -8,7 +8,7 @@ namespace dae
 {
 	inline bool HaveSameSign(float val1, float val2, float val3)
 	{
-		return (std::signbit(val1) == std::signbit(val2)) && (std::signbit(val2) == std::signbit(val3));
+		return std::signbit(val1) == std::signbit(val2) && std::signbit(val2) == std::signbit(val3);
 	}
 
 	template<typename AttributeType>
@@ -29,70 +29,42 @@ namespace dae
 	// Both pixel and the triangle vertices must be in SCREEN SPACE
 	inline Vector3 CalculateBarycentricCoordinates(const Vector2& v0, const Vector2& v1, const Vector2& v2, const Vector2& p, float invArea)
 	{
-		//float area = Vector2::Cross(v1 - v0, v2 - v0);
-		//area = abs(area);
-		//float invArea = 1.f / area;
-
 		// Calculate the barycentric coordinates
-		// the if-checks and early return statements are to prevent further computing once one of the weights is outide of the -1 - 1 range
-		// Since at that point, our pixel is 100% going to be outside of the triangle
-		// If this is the case, we return the barycentric {0, 0, 0}, which will immediatly get discarded by the AreBarycentricValid function
+		// the if-checks and early return statements are to prevent further computing once one of the weights is outside the -1 - 1 range
+		// Since at that point, our pixel is 100% going to be outside the triangle
+		// If this is the case, we return the barycentric {0, 0, 0}, which will immediately get discarded by the AreBarycentricValid function
 		float u = Vector2::Cross(v1 - p, v2 - v1) * invArea;
-		if (u < -1 or u > 1) return {};
+		if (u < -1 or u > 1) return { 1,-1,1 }; // return invalid weights
 		float v = Vector2::Cross(v2 - p, v0 - v2) * invArea;
-		if (v < -1 or v > 1) return {};
+		if (v < -1 or v > 1) return { 1,-1,1 }; // return invalid weights
 		float w = Vector2::Cross(v0 - p, v1 - v0) * invArea;
-		if (w < -1 or w > 1) return {};
+		if (w < -1 or w > 1) return { 1,-1,1 }; // return invalid weights
 
 		return { u, v, w };
 	}
-	inline bool AreBarycentricValid(Vector3& barycentric, CullMode cullMode = CullMode::BackFace)
+	inline bool AreBarycentricValid(Vector3& barycentric)
 	{
-		bool backfaceCulling = false;
-		bool frontfaceCulling = false;
-		if (cullMode == CullMode::BackFace) backfaceCulling = true;
-		else if (cullMode == CullMode::FrontFace) frontfaceCulling = true;
+		// If they differ from sign, already return false
+		if (!HaveSameSign(barycentric.x, barycentric.y, barycentric.z)) return false;
 
 		// Create simpler aliases
-		const float& X = barycentric.x;
-		const float& Y = barycentric.y;
-		const float& Z = barycentric.z;
+		const float X = barycentric.x = abs(barycentric.x);
+		const float Y = barycentric.y = abs(barycentric.y);
+		const float Z = barycentric.z = abs(barycentric.z);
 
-		// Do a quick check to immediatly discard if the sum doesn't equal 1 or -1
-		if (!AreEqual(X + Y + Z, -1, 0.0001f)
-			&& !AreEqual(X + Y + Z, 1, 0.0001f)) return false;
+		// Do a quick check to immediately discard if the sum doesn't equal 1
+		if (!AreEqual(X + Y + Z, 1, 0.0001f)) return false;
 
-		// If they differ from sign, already return false
-		if (!HaveSameSign(X, Y, Z)) return false;
+		return true;
 
-		// Cull back/front faces if needed
-		if (backfaceCulling)
-		{
-			if (X <= 0 and Y <= 0 and Z <= 0) return false;
-		}
-		else if (frontfaceCulling)
-		{
-			if (X >= 0 and Y >= 0 and Z >= 0) return false;
-		}
 
-		// Create aliases for abs, as well as absolute the actual 
-		const float absX = barycentric.x = abs(X);
-		const float absY = barycentric.y = abs(Y);
-		const float absZ = barycentric.z = abs(Z);
-
+		// Below code not needed anymore as I already check if the weights have the same sign and their absolutes add up to 1.
+		// Mathematically speaking, this must mean their absolute values must be between 0-1.
 		// Check if they are within the valid range of 0-1
-		if (absX < 0.f or absX > 1.f) return false;
-		if (absY < 0.f or absY > 1.f) return false;
-		if (absZ < 0.f or absZ > 1.f) return false;
+		//if (X < 0.f or X > 1.f) return false;
+		//if (Y < 0.f or Y > 1.f) return false;
+		//if (Z < 0.f or Z > 1.f) return false;
 
-		// Check if their sum equals 1
-		// We check this again since our initial sum check is a quick and dirty one, which doesn't take into account if their signs are the same
-		// e.g. -3 + 4 + 0 also equals 1, but therefore isn't valid
-		// this check will prevent that
-		float sum = absX + absY + absZ;
-		bool equalOne = (sum - 1.f) > -0.0001f and (sum - 1.f) < 0.0001f;
-
-		return equalOne;
 	}
 
 	inline bool IsNDCTriangleInFrustum(const Vertex& vertex)

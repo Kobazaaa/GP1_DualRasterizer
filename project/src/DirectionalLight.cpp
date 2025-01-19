@@ -1,9 +1,10 @@
 #include "DirectionalLight.h"
-
 #include <cassert>
-
 #include "Mesh.h"
 
+//--------------------------------------------------
+//    Constructors and Destructors
+//--------------------------------------------------
 void DirectionalLight::Initialize(ID3D11Device* pDevice, const Vector3& dir, float intensity, const ColorRGB& col)
 {
     // 1.
@@ -15,7 +16,7 @@ void DirectionalLight::Initialize(ID3D11Device* pDevice, const Vector3& dir, flo
 
     // 2.
     // Create Effect
-    m_pEffect = new ShadowMapEffect(pDevice, L"resources/LightMap.fx");
+    m_pEffect = new Effect(pDevice, L"resources/LightMap.fx");
 
     // 3.
     // Create shadow map texture
@@ -109,7 +110,6 @@ void DirectionalLight::Initialize(ID3D11Device* pDevice, const Vector3& dir, flo
     if (FAILED(result))
         assert(false);
 }
-
 DirectionalLight::~DirectionalLight()
 {
     if (m_pInputLayout) m_pInputLayout->Release();
@@ -120,6 +120,10 @@ DirectionalLight::~DirectionalLight()
     delete m_pEffect;
 }
 
+
+//--------------------------------------------------
+//    Mutators
+//--------------------------------------------------
 void DirectionalLight::SetDirection(const Vector3& direction)
 {
     m_Direction = direction;
@@ -149,7 +153,7 @@ void DirectionalLight::UpdateViewProjection(const Vector3& target, const Vector3
 
     m_ProjMatrix = Matrix::CreateOrthographicLH(orthoWidth, orthoHeight, nearPlane, farPlane);
 }
-void DirectionalLight::RenderShadowMap(ID3D11DeviceContext* pDeviceContext, const std::map<const std::string, Mesh*>& meshes)
+void DirectionalLight::RenderShadowMap(ID3D11DeviceContext* pDeviceContext, const std::map<const std::string, Mesh*>& meshes) const
 {
     // 1.
     // Set Render Target to the Shadow Map
@@ -210,7 +214,7 @@ void DirectionalLight::RenderShadowMap(ID3D11DeviceContext* pDeviceContext, cons
         // 7.
 		// Set the World View Projection Matrix
         auto wvp = currM->GetWorldMatrix() * m_ViewMatrix * m_ProjMatrix;
-        m_pEffect->SetWorldViewProjMatrix(wvp);
+        m_pEffect->SetMatrixByName("gWorldViewProj", wvp);
 		m_pEffect->GetTechniqueByIndex(0)->GetPassByIndex(0)->Apply(0, pDeviceContext);
 
 
@@ -226,23 +230,33 @@ void DirectionalLight::RenderShadowMap(ID3D11DeviceContext* pDeviceContext, cons
     pDeviceContext->OMSetRenderTargets(1, &nullRTV, nullptr);
 }
 
+
+//--------------------------------------------------
+//    Accessors
+//--------------------------------------------------
 const Matrix& DirectionalLight::GetViewMatrix() const
 {
     return m_ViewMatrix;
 }
-
 const Matrix& DirectionalLight::GetProjectionMatrix() const
 {
     return m_ProjMatrix;
 }
-
 ID3D11ShaderResourceView* DirectionalLight::GetShadowMapSRV() const
 {
     return m_pShadowMapSRV;
 }
-
 ID3D11DepthStencilView* DirectionalLight::GetShadowMapDSV() const
 {
     return m_pShadowMapDSV;
+}
+
+Vector3 DirectionalLight::GetDirection() const
+{
+    return m_Direction;
+}
+float DirectionalLight::GetIntensity() const
+{
+    return m_Intensity;
 }
 

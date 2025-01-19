@@ -5,7 +5,7 @@
 //--------------------------------------------------
 //    Constructors and Destructors
 //--------------------------------------------------
-Mesh::Mesh(ID3D11Device* pDevice, const std::string& objFilePath, BaseEffect* pEffect, const bool hasTransparency)
+Mesh::Mesh(ID3D11Device* pDevice, const std::string& objFilePath, const std::string& effectPath, const bool hasTransparency)
 {
 	m_Transparency = hasTransparency;
 
@@ -13,7 +13,7 @@ Mesh::Mesh(ID3D11Device* pDevice, const std::string& objFilePath, BaseEffect* pE
 	Utils::ParseOBJ(objFilePath, m_vVertices, m_vIndices);
 
 	// Get the Effect and Technique
-	m_pEffect = pEffect;
+	m_pEffect = new Effect(pDevice, {effectPath.begin(), effectPath.end()});
 	if (m_pEffect->GetEffect()->IsValid()) m_pCurrentTechnique = m_pEffect->GetTechniqueByIndex(0);
 
 	// Create Vertex Layout
@@ -272,3 +272,7 @@ void Mesh::SetWorldMatrix(const Matrix& newWorldMatrix) { m_WorldMatrix = newWor
 
 // Accessors
 const Matrix& Mesh::GetWorldMatrix() const { return m_WorldMatrix; }
+Effect* Mesh::GetEffect() const
+{
+	return m_pEffect;
+}

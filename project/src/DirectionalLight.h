@@ -28,7 +28,7 @@ public:
 	void SetIntensity(float intensity);
 
 	void UpdateViewProjection(const Vector3& target, const Vector3& up = { 0.0f, 1.0f, 0.0f });
-	void RenderShadowMap(ID3D11DeviceContext* pDeviceContext, const std::map<const std::string, Mesh*>& meshes);
+	void RenderShadowMap(ID3D11DeviceContext* pDeviceContext, const std::map<const std::string, Mesh*>& meshes) const;
 
 	//--------------------------------------------------
 	//    Accessors
@@ -38,6 +38,8 @@ public:
 	ID3D11ShaderResourceView* GetShadowMapSRV() const;
 	ID3D11DepthStencilView* GetShadowMapDSV() const;
 
+	Vector3 GetDirection() const;
+	float GetIntensity() const;
 private:
 	//--------------------------------------------------
 	//    Light Data
@@ -52,17 +54,16 @@ private:
 	//--------------------------------------------------
 	//    Shadow Data
 	//--------------------------------------------------
-	uint32_t m_ShadowMapWidth = 4096;
-	uint32_t m_ShadowMapHeight = 4096;
+	uint32_t m_ShadowMapWidth = 2048;
+	uint32_t m_ShadowMapHeight = 2048;
 	// Shadow map resources
-	ID3D11Texture2D* m_pShadowMapTexture;
-	ID3D11DepthStencilView* m_pShadowMapDSV;
-	ID3D11ShaderResourceView* m_pShadowMapSRV;
+	ID3D11Texture2D* m_pShadowMapTexture{};
+	ID3D11DepthStencilView* m_pShadowMapDSV{};
+	ID3D11ShaderResourceView* m_pShadowMapSRV{};
 
 	//--------------------------------------------------
 	//    DirectX
 	//--------------------------------------------------
-	ShadowMapEffect* m_pEffect{};
+	Effect* m_pEffect{};
 	ID3D11InputLayout* m_pInputLayout{};
-
 };

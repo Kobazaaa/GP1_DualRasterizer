@@ -30,11 +30,11 @@ namespace dae
 	}
 
 	// Returns -1 if < 0, returns 1 if > 0, returns 0 if == 0
-	inline int SignOf(float value)
+	inline float SignOf(int value)
 	{
-		if (value > -FLT_EPSILON and value < FLT_EPSILON) return 0;
+		if (value == 0) return 0.f;
 
-		return value < 0.f ? -1 : 1;
+		return value < 0 ? -1.f : 1.f;
 	}
 
 	inline float Lerpf(float a, float b, float factor)

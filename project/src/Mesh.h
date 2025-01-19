@@ -38,7 +38,7 @@ public:
 	//--------------------------------------------------
 	//    Constructors and Destructors
 	//--------------------------------------------------
-	Mesh(ID3D11Device* pDevice, const std::string& objFilePath, BaseEffect* pEffect, const bool hasTransparency = false);
+	Mesh(ID3D11Device* pDevice, const std::string& objFilePath, const std::string& effectPath, const bool hasTransparency = false);
 	~Mesh();
 
 	Mesh(const Mesh&) = delete;
@@ -94,6 +94,7 @@ public:
 
 	// Accessors
 	const Matrix& GetWorldMatrix() const;
+	Effect* GetEffect() const;
 
 private:
 	//--------------------------------------------------
@@ -122,7 +123,7 @@ private:
 	//--------------------------------------------------
 	//    DirectX
 	//--------------------------------------------------
-	BaseEffect* m_pEffect{};
+	Effect* m_pEffect{};
 	ID3DX11EffectTechnique* m_pCurrentTechnique{};
 
 	ID3D11InputLayout* m_pInputLayout{};

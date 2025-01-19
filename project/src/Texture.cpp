@@ -101,8 +101,8 @@ ColorRGB Texture::Sample(const Vector2& uv, bool sampleAlpha, float* alpha) cons
 
 	// Since our UV coordinates are of values between [0; 1] and SDL requests pixel indexes,
 	// we multiply the UV with width and height of the background
-	int x = u * m_pSurface->w;
-	int y = v * m_pSurface->h;
+	int x = static_cast<int>(u * m_pSurface->w);
+	int y = static_cast<int>(v * m_pSurface->h);
 
 	// Bytes per pixel
 	const Uint8 bytesPerPixel = m_pSurface->format->BytesPerPixel;

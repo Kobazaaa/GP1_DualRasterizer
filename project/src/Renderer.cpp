@@ -38,27 +38,24 @@ namespace dae {
 		}
 
 		// Initialize Meshes and Effects
-		m_pVehicleEffect = new FullShadeEffect(m_pDevice, L"resources/Vehicle.fx");
-		m_vMeshes["0Vehicle"] = new Mesh(m_pDevice, "resources/vehicle.obj", m_pVehicleEffect, false);
+		m_vMeshes["0Vehicle"] = new Mesh(m_pDevice, "resources/vehicle.obj", "resources/Vehicle.fx", false);
 		m_vMeshes["0Vehicle"]->LoadDiffuseTexture("resources/vehicle_diffuse.png", m_pDevice);
 		m_vMeshes["0Vehicle"]->LoadNormalMap("resources/vehicle_normal.png", m_pDevice);
 		m_vMeshes["0Vehicle"]->LoadSpecularMap("resources/vehicle_specular.png", m_pDevice);
 		m_vMeshes["0Vehicle"]->LoadGlossinessMap("resources/vehicle_gloss.png", m_pDevice);
 		m_vMeshes["0Vehicle"]->SetWorldMatrix(Matrix::CreateTranslation(0.f, 0.f, 50.f));
 
-		m_pFireEffect = new FlatShadeEffect(m_pDevice, L"resources/Fire.fx");
-		m_vMeshes["1Fire"] = new Mesh(m_pDevice, "resources/fireFX.obj", m_pFireEffect, true);
+		m_vMeshes["1Fire"] = new Mesh(m_pDevice, "resources/fireFX.obj", "resources/Fire.fx", true);
 		m_vMeshes["1Fire"]->LoadDiffuseTexture("resources/fireFX_diffuse.png", m_pDevice);
 		m_vMeshes["1Fire"]->SetWorldMatrix(Matrix::CreateTranslation(0.f, 0.f, 50.f));
 
 
-		m_pPlaneEffect = new FlatShadeEffect(m_pDevice, L"resources/Plane.fx");
-		m_vMeshes["0Plane"] = new Mesh(m_pDevice, "resources/plane.obj", m_pPlaneEffect, false);
+		m_vMeshes["0Plane"] = new Mesh(m_pDevice, "resources/plane.obj", "resources/Plane.fx", false);
 		m_vMeshes["0Plane"]->LoadDiffuseTexture("resources/plane_diffuse.png", m_pDevice);
 		m_vMeshes["0Plane"]->SetWorldMatrix(Matrix::CreateTranslation(0.f, -10.f, 50.f));
 
 		// Initialize Camera
-		m_Camera.Initialize(45.f, { 0.f, 0.f, 0.f }, static_cast<float>(m_Width) / static_cast<float>(m_Height), 0.1f, 10000.f);
+		m_Camera.Initialize(45.f, { 0.f, 0.f, 0.f }, static_cast<float>(m_Width) / static_cast<float>(m_Height), 0.1f, 100.f);
 		m_Light.Initialize(m_pDevice, { 0.577f , -0.577f , 0.577f }, 7.0f);
 	}
 	Renderer::~Renderer()
@@ -97,10 +94,8 @@ namespace dae {
 		m_Camera.Update(pTimer);
 		m_Light.UpdateViewProjection({0,0,50});
 
-		m_pVehicleEffect->SetWorldMatrix(m_vMeshes["0Vehicle"]->GetWorldMatrix());
-		m_pVehicleEffect->SetCameraPosition(m_Camera.origin);
-		m_pPlaneEffect->SetWorldMatrix(m_vMeshes["0Plane"]->GetWorldMatrix());
-		//m_pPlaneEffect->SetCameraPosition(m_Camera.origin);
+		m_vMeshes["0Vehicle"]->GetEffect()->SetMatrixByName("gWorldMatrix", m_vMeshes["0Vehicle"]->GetWorldMatrix());
+		m_vMeshes["0Vehicle"]->GetEffect()->SetVector3ByName("gCameraPos", m_Camera.origin);
 
 		if (m_RotateMesh)
 		{
@@ -112,13 +107,17 @@ namespace dae {
 		}
 
 		Matrix wvpMatrix = m_vMeshes["0Vehicle"]->GetWorldMatrix() * m_Camera.GetViewMatrix() * m_Camera.GetProjectionMatrix();
-		m_pVehicleEffect->SetWorldViewProjectionMatrix(wvpMatrix);
+		m_vMeshes["0Vehicle"]->GetEffect()->SetMatrixByName("gWorldViewProj", wvpMatrix);
 
-		wvpMatrix = m_vMeshes["0Plane"]->GetWorldMatrix() * m_Camera.GetViewMatrix() * m_Camera.GetProjectionMatrix();
-		m_pPlaneEffect->SetWorldViewProjectionMatrix(wvpMatrix);
+		if (m_Shadows)
+		{
+			m_vMeshes["0Plane"]->GetEffect()->SetMatrixByName("gWorldMatrix", m_vMeshes["0Plane"]->GetWorldMatrix());
+			wvpMatrix = m_vMeshes["0Plane"]->GetWorldMatrix() * m_Camera.GetViewMatrix() * m_Camera.GetProjectionMatrix();
+			m_vMeshes["0Plane"]->GetEffect()->SetMatrixByName("gWorldViewProj", wvpMatrix);
+		}
 
 		wvpMatrix = m_vMeshes["1Fire"]->GetWorldMatrix() * m_Camera.GetViewMatrix() * m_Camera.GetProjectionMatrix();
-		m_pFireEffect->SetWorldViewProjectionMatrix(wvpMatrix);
+		m_vMeshes["1Fire"]->GetEffect()->SetMatrixByName("gWorldViewProj", wvpMatrix);
 
 	}
 	void Renderer::Render()
@@ -131,9 +130,9 @@ namespace dae {
 		{
 			// @START
 			SDL_FillRect(m_pBackBuffer, NULL, SDL_MapRGB(m_pBackBuffer->format,
-				255 * fillColor.r,
-				255 * fillColor.g,
-				255 * fillColor.b));
+				static_cast<Uint8>(255 * fillColor.r),
+				static_cast<Uint8>(255 * fillColor.g),
+				static_cast<Uint8>(255 * fillColor.b)));
 			std::fill(&m_pDepthBufferPixels[0], &m_pDepthBufferPixels[m_Width * m_Height], 1);
 
 			// Lock BackBuffer
@@ -157,10 +156,27 @@ namespace dae {
 			m_pDeviceContext->ClearDepthStencilView(m_pDepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.f, 0);
 
 
-			// 2. SET PIPELINE + INVOKE DRAW CALLS (= RENDER)
-			m_Light.RenderShadowMap(m_pDeviceContext, m_vMeshes);
+			// 2. GENERATE LIGHT MAP AND SET IN SHADERS
+			if (m_Shadows)
+			{
+				m_Light.RenderShadowMap(m_pDeviceContext, m_vMeshes);
 
+				m_vMeshes["0Vehicle"]->GetEffect()->SetShaderResourceView("gShadowMap", m_Light.GetShadowMapSRV());
+				m_vMeshes["0Vehicle"]->GetEffect()->SetMatrixByName("gLightViewProj", m_Light.GetViewMatrix() * m_Light.GetProjectionMatrix());
 
+				m_vMeshes["0Plane"]->GetEffect()->SetShaderResourceView("gShadowMap", m_Light.GetShadowMapSRV());
+				m_vMeshes["0Plane"]->GetEffect()->SetMatrixByName("gLightViewProj", m_Light.GetViewMatrix() * m_Light.GetProjectionMatrix());
+			}
+			else
+			{
+				m_vMeshes["0Vehicle"]->GetEffect()->SetShaderResourceView("gShadowMap", nullptr);
+				m_vMeshes["0Vehicle"]->GetEffect()->SetMatrixByName("gLightViewProj", Matrix());
+
+				m_vMeshes["0Plane"]->GetEffect()->SetShaderResourceView("gShadowMap", nullptr);
+				m_vMeshes["0Plane"]->GetEffect()->SetMatrixByName("gLightViewProj", Matrix());
+			}
+
+			// 3. SET RENDER TARGET
 			m_pDeviceContext->OMSetRenderTargets(1, &m_pRenderTargetView, m_pDepthStencilView);
 			D3D11_VIEWPORT viewport{};
 			viewport.Width = static_cast<float>(m_Width);
@@ -171,23 +187,20 @@ namespace dae {
 			viewport.MaxDepth = 1.f;
 			m_pDeviceContext->RSSetViewports(1, &viewport);
 
+			// 4. INVOKE DRAW CALLS
 			for (auto& element : m_vMeshes)
 			{
 				Mesh* currentMesh = element.second;
 
 				if (!m_FireVisible and currentMesh->HasTransparency()) continue;
+				if (!m_Shadows and element.first == "0Plane") continue;
 
-				m_pVehicleEffect->SetShaderResourceView("gShadowMap", m_Light.GetShadowMapSRV());
-				m_pVehicleEffect->SetMatrixByName("gLightViewProj", m_Light.GetViewMatrix() * m_Light.GetProjectionMatrix());
 
-				m_pPlaneEffect->SetShaderResourceView("gShadowMap", m_Light.GetShadowMapSRV());
-				m_pPlaneEffect->SetMatrixByName("gLightViewProj", m_Light.GetViewMatrix() * m_Light.GetProjectionMatrix());
-				
 				m_pDeviceContext->RSSetState(m_pCurrentRasterizerState);
 				currentMesh->RenderGPU(m_pDeviceContext);
 			}
 
-			// 3. PRESENT BACKBUFFER (SWAP)
+			// 5. PRESENT BACKBUFFER (SWAP)
 			m_pSwapChain->Present(0, 0);
 		}
 	}
@@ -236,12 +249,19 @@ namespace dae {
 		std::cout << DARK_YELLOW_TXT << "**(SHARED) Uniform ClearColor = " << (m_DoUniformColor ? "ON" : "OFF") << "\n";
 	}
 
+	void Renderer::ToggleFire()
+	{
+		m_FireVisible = !m_FireVisible;
+		std::cout << DARK_YELLOW_TXT << "**(SHARED) FireFX = " << (m_FireVisible ? "ON" : "OFF") << "\n";
+	}
 
 	//--------------------------------------------------
 	//    Software Rasterizer
 	//--------------------------------------------------
 	void Renderer::CycleShadingMode()
 	{
+		if (!m_SoftwareRasterizer) return;
+
 		switch (m_CurrentShadingMode)
 		{
 		case ShadingMode::ObservedArea:
@@ -267,18 +287,27 @@ namespace dae {
 
 	void Renderer::ToggleDepthBufferVisualization()
 	{
+		if (!m_SoftwareRasterizer) return;
 		m_DepthBufferVisualization = !m_DepthBufferVisualization;
 		std::cout << DARK_MAGENTA_TXT << "**(SOFTWARE) DepthBuffer Visualization = " << (m_DepthBufferVisualization ? "ON" : "OFF") << "\n";
 	}
 	void Renderer::ToggleNormalMap()
 	{
+		if (!m_SoftwareRasterizer) return;
 		m_UseNormalMap = !m_UseNormalMap;
 		std::cout << DARK_MAGENTA_TXT << "**(SOFTWARE) NormalMap = " << (m_UseNormalMap ? "ON" : "OFF") << "\n";
 	}
 	void Renderer::ToggleBoundingBox()
 	{
+		if (!m_SoftwareRasterizer) return;
 		m_BoundingBoxVisualization = !m_BoundingBoxVisualization;
 		std::cout << DARK_MAGENTA_TXT << "**(SOFTWARE) BoundingBox Visualization = " << (m_BoundingBoxVisualization ? "ON" : "OFF") << "\n";
+	}
+	void Renderer::ToggleWireFrames()
+	{
+		if (!m_SoftwareRasterizer) return;
+		m_DrawWireFrames = !m_DrawWireFrames;
+		std::cout << DARK_MAGENTA_TXT << "**(SOFTWARE) Wireframes Visualization = " << (m_DrawWireFrames ? "ON" : "OFF") << "\n";
 	}
 
 
@@ -287,6 +316,7 @@ namespace dae {
 	//--------------------------------------------------
 	void Renderer::CycleSamplingStates()
 	{
+		if (m_SoftwareRasterizer) return;
 		switch (m_CurrentSamplerState)
 		{
 		case SamplerState::Point:
@@ -311,10 +341,11 @@ namespace dae {
 			m.second->SetTextureSamplingState(m_CurrentSamplerState);
 		}
 	}
-	void Renderer::ToggleFire()
+	void Renderer::ToggleShadows()
 	{
-		m_FireVisible = !m_FireVisible;
-		std::cout << DARK_GREEN_TXT << "**(HARDWARE) FireFX = " << (m_FireVisible ? "ON" : "OFF") << "\n";
+		if (m_SoftwareRasterizer) return;
+		m_Shadows = !m_Shadows;
+		std::cout << DARK_GREEN_TXT << "**(HARDWARE) Shadows = " << (m_Shadows ? "ON" : "OFF") << "\n";
 	}
 
 
@@ -395,16 +426,26 @@ namespace dae {
 				const Vector2& v1 = triangleRasterVertices[1].position.GetXY();
 				const Vector2& v2 = triangleRasterVertices[2].position.GetXY();
 
-				//if (m_DrawWireFrames)
-				//{
-				//	ColorRGB wireFrameColor = colors::White * Remap01(minDepth, 0.998f, 1.f);
+				if (m_DrawWireFrames)
+				{
+					ColorRGB wireFrameColor = colors::White * Remap01(minDepth, 0.998f, 1.f);
 
-				//	DrawLine(v0.x, v0.y, v1.x, v1.y, wireFrameColor);
-				//	DrawLine(v1.x, v1.y, v2.x, v2.y, wireFrameColor);
-				//	DrawLine(v2.x, v2.y, v0.x, v0.y, wireFrameColor);
+					DrawLine(int(v0.x), int(v0.y), int(v1.x), int(v1.y), wireFrameColor);
+					DrawLine(int(v1.x), int(v1.y), int(v2.x), int(v2.y), wireFrameColor);
+					DrawLine(int(v2.x), int(v2.y), int(v0.x), int(v0.y), wireFrameColor);
 
-				//	continue;
-				//}
+					continue;
+				}
+
+				// Pre-calculate the inverse area of the triangle so this doesn't need to happen for
+				// every pixel once we calculate the barycentric coordinates (as the triangle area won't change)
+				float area = Vector2::Cross(v1 - v0, v2 - v0);
+				// Cull (except for transparent meshes like fire)
+				if ((area < 0 and m_CurrentCullMode == CullMode::BackFace || area > 0 and m_CurrentCullMode == CullMode::FrontFace)
+					&& !currentMesh->HasTransparency()) continue;
+				if (area <= FLT_EPSILON and area >= -FLT_EPSILON) continue; // area is 0, we don't want zero-division
+				float invArea = 1.f / area;
+
 
 				// Define the triangle's bounding box
 				Vector2 min = { FLT_MAX,  FLT_MAX };
@@ -433,13 +474,6 @@ namespace dae {
 					continue;
 				}
 
-				// Pre-calculate the inverse area of the triangle so this doesn't need to happen for
-				// every pixels once we calculate the barycentric coordinates (as the triangle area won't change)
-				float area = Vector2::Cross(v1 - v0, v2 - v0);
-				area = abs(area);
-				float invArea = 1.f / area;
-
-
 				// For every pixel (within the bounding box)
 				for (int py{ int(min.y) }; py < int(max.y); ++py)
 				{
@@ -464,7 +498,7 @@ namespace dae {
 							v0, v1, v2, pixelCoord, invArea);
 
 						// Check if our barycentric coordinates are valid, if not, skip to the next pixel
-						if (!AreBarycentricValid(barycentricCoords, (currentMesh->HasTransparency()) ? CullMode::None : m_CurrentCullMode)) continue;
+						if (!AreBarycentricValid(barycentricCoords)) continue;
 
 						// Now we interpolated both our Z and W depths
 						InterpolateDepths(zBufferValue, wInterpolated, triangleRasterVertices, barycentricCoords);
@@ -646,7 +680,7 @@ namespace dae {
 		constexpr ColorRGB ambient{ 0.025f, 0.025f, 0.025f };
 
 		// Set up the light
-		const Vector3 lightDirection = { 0.577f , -0.577f , 0.577f };
+		const Vector3 lightDirection = { m_Light.GetDirection() };
 		const Vector3 directionToLight = -lightDirection.Normalized();
 
 		// Sample the normal
@@ -662,7 +696,7 @@ namespace dae {
 		// Calculate the lambert diffuse color
 		const ColorRGB cd = m->SampleDiffuse(v.uv, alpha);
 		if (m->HasTransparency() or sampledNormal == v.normal) return cd;
-		constexpr float kd = 7.f;
+		const float kd = m_Light.GetIntensity();
 		const ColorRGB lambertDiffuse = (cd * kd) * ONE_DIV_PI;
 
 
@@ -830,5 +864,35 @@ namespace dae {
 			return result;
 
 		return S_OK;
+	}
+}
+
+void Renderer::DrawLine(int x0, int y0, int x1, int y1, const ColorRGB& color) const
+{
+	// Bresenham's Line Algorithm
+// https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
+
+	int dx = abs(x1 - x0);
+	int sx = (x0 < x1) ? 1 : -1;
+
+	int dy = -abs(y1 - y0);
+	int sy = (y0 < y1) ? 1 : -1;
+	int err = dx + dy;
+
+	while (true)
+	{
+		if (y0 < m_Height and y0 >= 0
+			and x0 < m_Width and x0 >= 0)
+		{
+			m_pBackBufferPixels[m_Width * y0 + x0] = SDL_MapRGB(m_pBackBuffer->format,
+				static_cast<uint8_t>(color.r * 255),
+				static_cast<uint8_t>(color.g * 255),
+				static_cast<uint8_t>(color.b * 255));
+		}
+
+		if (x0 == x1 && y0 == y1) break;
+		int e2 = 2 * err;
+		if (e2 >= dy) { err += dy; x0 += sx; }
+		if (e2 <= dx) { err += dx; y0 += sy; }
 	}
 }

@@ -33,8 +33,8 @@ namespace dae
 		float totalPitch{};
 		float totalYaw{};
 
-		const float MOVEMENT_SPEED = 150.f;
-		const float ROTATION_SPEED = 300.f;
+		const float MOVEMENT_SPEED = 75.f;
+		const float ROTATION_SPEED = 0.3f;
 
 		Matrix viewMatrix{};
 		Matrix invViewMatrix{};
@@ -64,10 +64,9 @@ namespace dae
 		{
 			// Calculate the viewMatrix, aka the matrix to transform world space to camera space
 			viewMatrix = Matrix::CreateLookAtLH(origin, origin + forward, Vector3::UnitY);
-			Matrix temp = viewMatrix; // create a temp copy because .Inverse() changes the matrix itself, which we don't want
 
 			// The inverse of the viewMatrix is the invViewMatrix matrix
-			invViewMatrix = temp.Inverse();
+			invViewMatrix = Matrix::Inverse(viewMatrix);
 
 			// Get the axis' for the camera out of the invViewMatrix matrix
 			right	= invViewMatrix.GetAxisX();
@@ -75,12 +74,12 @@ namespace dae
 			forward = invViewMatrix.GetAxisZ();
 		}
 
-		Matrix GetViewMatrix()
+		const Matrix& GetViewMatrix()
 		{
 			//CalculateViewMatrix();
 			return viewMatrix;
 		}
-		Matrix GetProjectionMatrix()
+		const Matrix& GetProjectionMatrix()
 		{
 			projectionMatrix = Matrix::CreatePerspectiveFovLH(fov, aspect, nearPlane, farPlane);
 			return projectionMatrix;
@@ -89,7 +88,7 @@ namespace dae
 		void Update(const Timer* pTimer)
 		{
 			const float deltaTime = pTimer->GetElapsed();
-			const float displacement = MOVEMENT_SPEED * deltaTime;
+			float displacement = MOVEMENT_SPEED * deltaTime;
 			constexpr float pitchLockAngle = 80 * TO_RADIANS;
 
 			//Keyboard Input
@@ -98,6 +97,8 @@ namespace dae
 			//Mouse Input
 			int mouseX{}, mouseY{};
 			const uint32_t mouseState = SDL_GetRelativeMouseState(&mouseX, &mouseY);
+
+			if (pKeyboardState[SDL_SCANCODE_LSHIFT]) displacement *= 2;
 
 			// FORWARD
 			if (pKeyboardState[SDL_SCANCODE_Z]
@@ -120,18 +121,18 @@ namespace dae
 			const bool RMB = mouseState & SDL_BUTTON(SDL_BUTTON_RIGHT);
 			if (!LMB and RMB)
 			{
-				totalPitch  -= SignOf(mouseY) * ROTATION_SPEED * deltaTime * TO_RADIANS;
+				totalPitch  -= mouseY * ROTATION_SPEED * TO_RADIANS;
 				totalPitch   = std::clamp(totalPitch, -pitchLockAngle, pitchLockAngle); // locks the up/down camera rotation so you don't overshoot
-				totalYaw	+= SignOf(mouseX) * ROTATION_SPEED * deltaTime * TO_RADIANS;
+				totalYaw	+= mouseX * ROTATION_SPEED * TO_RADIANS;
 			}
 			else if (LMB and !RMB)
 			{
-				origin		-= SignOf(mouseY) * forward * displacement;
-				totalYaw	+= SignOf(mouseX) * ROTATION_SPEED * deltaTime * TO_RADIANS;
+				origin		-= mouseY * forward * displacement;
+				totalYaw	+= mouseX * ROTATION_SPEED * TO_RADIANS;
 			}
 			else if (LMB and RMB)
 			{
-				origin		-= SignOf(mouseY) * up * displacement;
+				origin		-= mouseY * up * displacement;
 			}
 
 			// Apply the rotations

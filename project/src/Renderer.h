@@ -44,6 +44,8 @@ namespace dae
 		void ToggleMeshRotation();
 		void ToggleUniformColor();
 
+		void ToggleFire();
+
 		//--------------------------------------------------
 		//    Software Rasterizer
 		//--------------------------------------------------
@@ -52,12 +54,13 @@ namespace dae
 		void ToggleDepthBufferVisualization();
 		void ToggleNormalMap();
 		void ToggleBoundingBox();
+		void ToggleWireFrames();
 
 		//--------------------------------------------------
 		//    DirectX Rasterizer
 		//--------------------------------------------------
 		void CycleSamplingStates();
-		void ToggleFire();
+		void ToggleShadows();
 
 	private:
 		DirectionalLight m_Light;
@@ -101,12 +104,14 @@ namespace dae
 		void InterpolateAllAttributes(const std::array<VertexOut, 3>& triangle, const Vector3& weights, const float wInterpolated, VertexOut& output);
 
 		ColorRGB PixelShading(const VertexOut& v, Mesh* m, float* alpha) const;
+		void DrawLine(int x0, int y0, int x1, int y1, const ColorRGB& color) const;
 
 		ShadingMode m_CurrentShadingMode		{ ShadingMode::Combined };
 		CullMode m_CurrentCullMode				{ CullMode::BackFace };
 		bool m_DepthBufferVisualization			{ false };
 		bool m_UseNormalMap						{ true };
 		bool m_BoundingBoxVisualization			{ false };
+		bool m_DrawWireFrames					{ false };
 		const ColorRGB m_SOFTWARE_COLOR			{ 0.39f, 0.39f, 0.39f };
 
 		//--------------------------------------------------
@@ -114,12 +119,9 @@ namespace dae
 		//--------------------------------------------------
 		HRESULT InitializeDirectX();
 
-		FullShadeEffect* m_pVehicleEffect;
-		FlatShadeEffect* m_pFireEffect;
-		FlatShadeEffect* m_pPlaneEffect;
-
 		bool m_IsInitialized			{ false };
 		bool m_FireVisible				{ true };
+		bool m_Shadows					{ false };
 		const ColorRGB m_HARDWARE_COLOR { 0.39f, 0.59f, 0.93f };
 
 		ID3D11Device* m_pDevice							{ nullptr };

@@ -4,19 +4,19 @@
 
 using namespace dae;
 
-class BaseEffect
+class Effect final
 {
 public:
 	//--------------------------------------------------
 	//    Constructors and Destructors
 	//--------------------------------------------------
-	BaseEffect(ID3D11Device* pDevice, const std::wstring& assetFile);
-	virtual ~BaseEffect();
+	Effect(ID3D11Device* pDevice, const std::wstring& assetFile);
+	virtual ~Effect();
 
-	BaseEffect(const BaseEffect& other) = delete;
-	BaseEffect(BaseEffect&& other) noexcept = delete;
-	BaseEffect& operator=(const BaseEffect& rhs) = delete;
-	BaseEffect& operator=(BaseEffect&& rhs) noexcept = delete;
+	Effect(const Effect& other) = delete;
+	Effect(Effect&& other) noexcept = delete;
+	Effect& operator=(const Effect& rhs) = delete;
+	Effect& operator=(Effect&& rhs) noexcept = delete;
 
 	//--------------------------------------------------
 	//    Effect Loader
@@ -33,102 +33,11 @@ public:
 	//--------------------------------------------------
 	//    Mutators
 	//--------------------------------------------------
-	void SetWorldViewProjectionMatrix(const Matrix& worldViewProjectionMatrix) const;
 	void LoadTexture(const std::string& variableName, const Texture* pTexture) const;
 	void SetMatrixByName(const std::string& variableName, const Matrix& m) const;
+	void SetVector3ByName(const std::string& variableName, const Vector3& v) const;
 	void SetShaderResourceView(const std::string& variableName, ID3D11ShaderResourceView* pSRV) const;
 
 protected:
 	ID3DX11Effect* m_pEffect{};
-
-	//--------------------------------------------------
-	//    Variables
-	//--------------------------------------------------
-	ID3DX11EffectMatrixVariable* m_pMatWorldViewProjVariable{};
 };
-
-class FullShadeEffect final : public BaseEffect
-{
-public:
-	//--------------------------------------------------
-	//    Constructors and Destructors
-	//--------------------------------------------------
-	FullShadeEffect(ID3D11Device* pDevice, const std::wstring& assetFile);
-	virtual ~FullShadeEffect() override;
-
-	FullShadeEffect(const FullShadeEffect& other) = delete;
-	FullShadeEffect(FullShadeEffect&& other) noexcept = delete;
-	FullShadeEffect& operator=(const FullShadeEffect& rhs) = delete;
-	FullShadeEffect& operator=(FullShadeEffect&& rhs) noexcept = delete;
-
-	//--------------------------------------------------
-	//    Mutators
-	//--------------------------------------------------
-	void SetWorldMatrix(const Matrix& worldMatrix) const;
-	void SetCameraPosition(const Vector3& cameraPosition) const;
-	void SetLightViewProj(const Matrix& lvp) const;
-
-private:
-	//--------------------------------------------------
-	//    Variables
-	//--------------------------------------------------
-	ID3DX11EffectMatrixVariable* m_pMatWorldVariable{};
-	ID3DX11EffectMatrixVariable* m_pMatLVPVariable{};
-	ID3DX11EffectVectorVariable* m_pVecCameraVariable{};
-};
-
-class FlatShadeEffect final : public BaseEffect
-{
-public:
-	//--------------------------------------------------
-	//    Constructors and Destructors
-	//--------------------------------------------------
-	FlatShadeEffect(ID3D11Device* pDevice, const std::wstring& assetFile);
-	virtual ~FlatShadeEffect() override;
-
-	FlatShadeEffect(const FlatShadeEffect& other) = delete;
-	FlatShadeEffect(FlatShadeEffect&& other) noexcept = delete;
-	FlatShadeEffect& operator=(const FlatShadeEffect& rhs) = delete;
-	FlatShadeEffect& operator=(FlatShadeEffect&& rhs) noexcept = delete;
-
-	//--------------------------------------------------
-	//    Mutators
-	//--------------------------------------------------
-	void SetWorldMatrix(const Matrix& worldMatrix) const;
-
-private:
-	//--------------------------------------------------
-	//    Variables
-	//--------------------------------------------------
-	ID3DX11EffectMatrixVariable* m_pMatWorldVariable{};
-
-};
-
-class ShadowMapEffect final : public BaseEffect
-{
-public:
-	//--------------------------------------------------
-	//    Constructors and Destructors
-	//--------------------------------------------------
-	ShadowMapEffect(ID3D11Device* pDevice, const std::wstring& assetFile);
-	virtual ~ShadowMapEffect() override;
-
-	ShadowMapEffect(const ShadowMapEffect& other) = delete;
-	ShadowMapEffect(ShadowMapEffect&& other) noexcept = delete;
-	ShadowMapEffect& operator=(const ShadowMapEffect& rhs) = delete;
-	ShadowMapEffect& operator=(ShadowMapEffect&& rhs) noexcept = delete;
-
-	//--------------------------------------------------
-	//    Mutators
-	//--------------------------------------------------
-	void SetWorldViewProjMatrix(const Matrix& wvpMatrix) const;
-
-private:
-	//--------------------------------------------------
-	//    Variables
-	//--------------------------------------------------
-	ID3DX11EffectMatrixVariable* m_pMatWVPVariable{};
-
-
-};
-

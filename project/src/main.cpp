@@ -22,6 +22,7 @@ void PrintInfo()
 	std::cout << "[Key Bindings - SHARED]\n";
 	std::cout << "   [F1]  Toggle Rasterizer Mode (HARDWARE/SOFTWARE)\n";
 	std::cout << "   [F2]  Toggle Vehicle Rotation (ON/OFF)\n";
+	std::cout << "   [F3]  Toggle FireFX (ON/OFF)\n";
 	std::cout << "   [F9]  Cycle CullMode (BACK/FRONT/NONE)\n";
 	std::cout << "   [F10] Toggle Uniform ClearColor (ON/OFF)\n";
 	std::cout << "   [F11] Toggle Print FPS (ON/OFF)\n";
@@ -29,8 +30,8 @@ void PrintInfo()
 
 	std::cout << DARK_GREEN_TXT;
 	std::cout << "[Key Bindings - HARDWARE]\n";
-	std::cout << "   [F3] Toggle FireFX (ON/OFF)\n";
 	std::cout << "   [F4] Cycle Sampler State (POINT/LINEAR/ANISOTROPIC)\n";
+	std::cout << "   [ENTER] Toggle Shadows (ON/OFF)\n";
 	std::cout << "\n";
 
 	std::cout << DARK_MAGENTA_TXT;
@@ -39,6 +40,13 @@ void PrintInfo()
 	std::cout << "   [F6] Toggle NormalMap (ON/OFF)\n";
 	std::cout << "   [F7] Toggle DepthBuffer Visualization (ON/OFF)\n";
 	std::cout << "   [F8] Toggle BoundingBox Visualization (ON/OFF)\n";
+	std::cout << "   [TAB] Toggle Wireframe Visualization (ON/OFF)\n";
+	std::cout << "\n";
+
+	std::cout << BRIGHT_BLUE_TXT;
+	std::cout << "[EXTRA FEATURES]\n";
+	std::cout << "   Software Transparency\n";
+	std::cout << "   Hardware Shadows\n";
 	std::cout << "\n";
 
 	std::cout << DEFAULT << "\n";
@@ -90,6 +98,10 @@ int main(int argc, char* args[])
 				break;
 			case SDL_KEYUP:
 				//Test for a key
+				if (e.key.keysym.scancode == SDL_SCANCODE_TAB)		// DONE
+					pRenderer->ToggleWireFrames();
+				if (e.key.keysym.scancode == SDL_SCANCODE_RETURN)	// DONE
+					pRenderer->ToggleShadows();
 				if (e.key.keysym.scancode == SDL_SCANCODE_F1)		// DONE
 					pRenderer->ToggleRenderer();
 				if (e.key.keysym.scancode == SDL_SCANCODE_F2)		// DONE
