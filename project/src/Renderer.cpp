@@ -78,9 +78,9 @@ namespace dae {
 		}
 		if (m_pDevice) m_pDevice->Release();
 
-		if(m_pRasterizerStateFront) m_pRasterizerStateFront->Release();
-		if (m_pRasterizerStateBack) m_pRasterizerStateBack->Release();
-		if (m_pRasterizerStateNone) m_pRasterizerStateNone->Release();
+		if (m_pRasterizerStateFront) m_pRasterizerStateFront->Release();
+		if (m_pRasterizerStateBack)  m_pRasterizerStateBack->Release();
+		if (m_pRasterizerStateNone)  m_pRasterizerStateNone->Release();
 
 		delete[] m_pDepthBufferPixels;
 	}

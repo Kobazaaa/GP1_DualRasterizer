@@ -45,6 +45,7 @@ void PrintInfo()
 
 	std::cout << BRIGHT_BLUE_TXT;
 	std::cout << "[EXTRA FEATURES]\n";
+	std::cout << "   Software Wireframe Visualization\n";
 	std::cout << "   Software Transparency\n";
 	std::cout << "   Hardware Shadows\n";
 	std::cout << "\n";

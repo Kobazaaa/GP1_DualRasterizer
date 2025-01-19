@@ -112,10 +112,10 @@ void DirectionalLight::Initialize(ID3D11Device* pDevice, const Vector3& dir, flo
 }
 DirectionalLight::~DirectionalLight()
 {
-    if (m_pInputLayout) m_pInputLayout->Release();
-    if (m_pShadowMapSRV) m_pShadowMapSRV->Release();
-    if (m_pShadowMapDSV) m_pShadowMapDSV->Release();
-    if (m_pShadowMapTexture) m_pShadowMapTexture->Release();
+    if (m_pInputLayout)         m_pInputLayout->Release();
+    if (m_pShadowMapSRV)        m_pShadowMapSRV->Release();
+    if (m_pShadowMapDSV)        m_pShadowMapDSV->Release();
+    if (m_pShadowMapTexture)    m_pShadowMapTexture->Release();
 
     delete m_pEffect;
 }
@@ -126,7 +126,7 @@ DirectionalLight::~DirectionalLight()
 //--------------------------------------------------
 void DirectionalLight::SetDirection(const Vector3& direction)
 {
-    m_Direction = direction;
+    m_Direction = direction.Normalized();
 }
 void DirectionalLight::SetColor(const ColorRGB& color)
 {

@@ -90,9 +90,9 @@ Mesh::Mesh(ID3D11Device* pDevice, const std::string& objFilePath, const std::str
 Mesh::~Mesh()
 {
 	// Release resources
-	m_pIndexBuffer->Release();
-	m_pVertexBuffer->Release();
-	m_pInputLayout->Release();
+	if(m_pIndexBuffer)		m_pIndexBuffer->Release();
+	if(m_pVertexBuffer)		m_pVertexBuffer->Release();
+	if(m_pInputLayout)		m_pInputLayout->Release();
 
 
 	delete m_pEffect;
